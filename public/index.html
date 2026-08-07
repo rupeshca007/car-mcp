@@ -31,6 +31,39 @@
 
       <form id="filter-form" class="filters-container">
         
+        <!-- Brand Selection Filter -->
+        <div class="filter-group">
+          <label for="brand-filter">Filter by Manufacturer</label>
+          <div class="select-wrapper">
+            <select id="brand-filter">
+              <option value="ALL">All 10 Brands</option>
+              <option value="Hyundai">Hyundai</option>
+              <option value="Tata">Tata Motors</option>
+              <option value="Mahindra">Mahindra</option>
+              <option value="Kia">Kia</option>
+              <option value="Toyota">Toyota</option>
+              <option value="MG">MG Motors</option>
+              <option value="Suzuki">Suzuki</option>
+              <option value="BMW">BMW</option>
+              <option value="Audi">Audi</option>
+              <option value="Mercedes">Mercedes-Benz</option>
+            </select>
+            <i class="bx bx-chevron-down select-arrow"></i>
+          </div>
+        </div>
+
+        <!-- Fuel Type Pills Filter -->
+        <div class="filter-group">
+          <label>Fuel & Drivetrain Type</label>
+          <div class="fuel-pills" id="fuel-pills">
+            <button type="button" class="fuel-pill active" data-fuel="ALL">All</button>
+            <button type="button" class="fuel-pill" data-fuel="Petrol">Petrol</button>
+            <button type="button" class="fuel-pill" data-fuel="Diesel">Diesel</button>
+            <button type="button" class="fuel-pill" data-fuel="Electric">Electric (EV)</button>
+            <button type="button" class="fuel-pill" data-fuel="Hybrid">Hybrid</button>
+          </div>
+        </div>
+
         <!-- Target Horsepower Filter -->
         <div class="filter-group">
           <label for="horsepower">
@@ -50,7 +83,7 @@
             <span id="budget-val" class="badge">₹20 Lakh</span>
           </label>
           <div class="range-wrapper">
-            <input type="range" id="budget" min="4" max="50" value="20" step="1">
+            <input type="range" id="budget" min="4" max="100" value="20" step="1">
           </div>
         </div>
 
@@ -81,6 +114,40 @@
           </div>
         </div>
 
+        <hr class="sidebar-divider">
+
+        <!-- Interactive EMI Calculator Controls -->
+        <div class="emi-calculator-panel">
+          <div class="panel-header">
+            <i class="bx bx-calculator"></i>
+            <h3>Live Loan EMI Calculator</h3>
+          </div>
+          
+          <div class="filter-group sm">
+            <label for="down-payment">
+              <span>Down Payment (%)</span>
+              <span id="dp-val" class="badge badge-accent">20%</span>
+            </label>
+            <input type="range" id="down-payment" min="10" max="50" value="20" step="5">
+          </div>
+
+          <div class="filter-group sm">
+            <label for="interest-rate">
+              <span>Interest Rate (% p.a.)</span>
+              <span id="ir-val" class="badge badge-accent">8.5%</span>
+            </label>
+            <input type="range" id="interest-rate" min="7" max="15" value="8.5" step="0.5">
+          </div>
+
+          <div class="filter-group sm">
+            <label for="tenure-years">
+              <span>Tenure (Years)</span>
+              <span id="tenure-val" class="badge badge-accent">5 Yrs</span>
+            </label>
+            <input type="range" id="tenure-years" min="1" max="7" value="5" step="1">
+          </div>
+        </div>
+
         <button type="submit" id="search-btn">
           <i class="bx bx-search-alt"></i> Run Aggregator Query
         </button>
@@ -89,7 +156,7 @@
       <div class="sidebar-footer">
         <div class="status-indicator">
           <span class="status-dot green"></span>
-          <span>Live RapidAPI Database Connected</span>
+          <span>10 Brands Live Connected</span>
         </div>
       </div>
     </aside>
@@ -103,15 +170,29 @@
         </div>
         <div class="header-api-info">
           <span class="api-pill"><i class="bx bx-network-chart"></i> MCP Stdio Protocol</span>
-          <span class="api-pill"><i class="bx bx-cabinet"></i> 3 Brand APIs</span>
+          <span class="api-pill"><i class="bx bx-cabinet"></i> 10 Brand APIs</span>
         </div>
       </header>
+
+      <!-- Floating Bottom Compare Action Bar -->
+      <div id="compare-bar" class="compare-bar hidden">
+        <div class="compare-info">
+          <i class="bx bx-git-compare"></i>
+          <span><strong id="compare-count">0</strong> cars selected for spec comparison</span>
+        </div>
+        <div class="compare-actions">
+          <button type="button" id="clear-compare-btn" class="btn-secondary-sm">Clear</button>
+          <button type="button" id="open-compare-modal-btn" class="btn-primary-sm">
+            <i class="bx bx-transfer-alt"></i> Compare Now
+          </button>
+        </div>
+      </div>
 
       <!-- Results Grid -->
       <section class="results-wrapper">
         <div id="loading" class="loading-container hidden">
           <div class="spinner"></div>
-          <p>MCP Aggregator querying RapidAPI for MG, Hyundai, and Suzuki concurrently...</p>
+          <p>MCP Aggregator querying 10 brand APIs concurrently...</p>
         </div>
         
         <div id="error-box" class="error-container hidden">
@@ -123,7 +204,7 @@
         <div id="empty-state" class="empty-state-container hidden">
           <i class="bx bx-car"></i>
           <h3>No Cars Match Your Filters</h3>
-          <p>Try increasing your budget or expanding your target horsepower range.</p>
+          <p>Try adjusting your brand, budget, or target horsepower range.</p>
         </div>
 
         <div id="cars-grid" class="cars-grid">
@@ -132,6 +213,65 @@
       </section>
     </main>
 
+  </div>
+
+  <!-- Glassmorphism Side-by-Side Comparison Modal -->
+  <div id="compare-modal" class="modal-backdrop hidden">
+    <div class="modal-content glass-card">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="bx bx-git-compare icon-glow"></i>
+          <h2>Head-to-Head Spec Comparison</h2>
+        </div>
+        <button type="button" id="close-modal-btn" class="close-btn"><i class="bx bx-x"></i></button>
+      </div>
+      <div class="modal-body" id="modal-matrix-container">
+        <!-- Rendered comparison matrix table -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Embedded Floating AI Assistant Chat FAB & Drawer -->
+  <button id="ai-chat-fab" class="ai-fab-btn" title="Ask AI Advisor">
+    <i class="bx bxs-bot fab-icon"></i>
+    <span>Ask AI Advisor</span>
+    <span class="fab-pulse"></span>
+  </button>
+
+  <div id="ai-chat-drawer" class="ai-drawer hidden">
+    <div class="drawer-header">
+      <div class="drawer-title">
+        <i class="bx bxs-bot text-gradient"></i>
+        <div>
+          <h3>Vehicle AI Advisor</h3>
+          <span class="sub-text">Powered by Gemini 2.5 & MCP Server</span>
+        </div>
+      </div>
+      <button type="button" id="close-drawer-btn" class="close-btn"><i class="bx bx-x"></i></button>
+    </div>
+
+    <!-- Quick Prompts Chips -->
+    <div class="quick-prompts">
+      <button type="button" class="prompt-chip" data-prompt="Which SUV here is best for mountain driving and rough roads?">⛰️ Best SUV for mountain driving?</button>
+      <button type="button" class="prompt-chip" data-prompt="Compare Creta vs Nexon vs Seltos side by side">🚗 Compare Creta vs Nexon</button>
+      <button type="button" class="prompt-chip" data-prompt="Show EV savings if I drive 60 km daily">⚡ EV Savings for 60km/day</button>
+    </div>
+
+    <!-- Message History Container -->
+    <div id="chat-messages" class="chat-messages">
+      <div class="message system-msg">
+        <i class="bx bxs-bot"></i>
+        <div>Hello! I'm your AI Vehicle Advisor. Ask me anything about car specs, comparisons, loan EMIs, or EV savings!</div>
+      </div>
+    </div>
+
+    <!-- Chat Input Area -->
+    <form id="chat-form" class="chat-input-wrapper">
+      <input type="text" id="chat-input" placeholder="Type your vehicle question..." autocomplete="off">
+      <button type="submit" id="chat-send-btn">
+        <i class="bx bxs-paper-plane"></i>
+      </button>
+    </form>
   </div>
 
   <script src="index.js"></script>

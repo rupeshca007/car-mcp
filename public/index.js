@@ -1,138 +1,371 @@
 document.addEventListener('DOMContentLoaded', () => {
-  // UI Elements
   const filterForm = document.getElementById('filter-form');
+  const hpInput = document.getElementById('horsepower');
+  const hpVal = document.getElementById('hp-val');
+  const budgetInput = document.getElementById('budget');
+  const budgetVal = document.getElementById('budget-val');
+  const brandFilter = document.getElementById('brand-filter');
+  const fuelPills = document.querySelectorAll('.fuel-pill');
   
-  const hpSlider = document.getElementById('horsepower');
-  const hpBadge = document.getElementById('hp-val');
-  
-  const budgetSlider = document.getElementById('budget');
-  const budgetBadge = document.getElementById('budget-val');
-  
-  const sortBySelect = document.getElementById('sortBy');
-  const resultCount = document.getElementById('result-count');
-  
+  // EMI sliders
+  const dpInput = document.getElementById('down-payment');
+  const dpVal = document.getElementById('dp-val');
+  const irInput = document.getElementById('interest-rate');
+  const irVal = document.getElementById('ir-val');
+  const tenureInput = document.getElementById('tenure-years');
+  const tenureVal = document.getElementById('tenure-val');
+
+  // Containers & Elements
   const carsGrid = document.getElementById('cars-grid');
-  const loadingElement = document.getElementById('loading');
+  const loading = document.getElementById('loading');
   const errorBox = document.getElementById('error-box');
   const errorText = document.getElementById('error-text');
   const emptyState = document.getElementById('empty-state');
+  const resultCount = document.getElementById('result-count');
 
-  // Update Horsepower Badge in real time
-  hpSlider.addEventListener('input', () => {
-    hpBadge.textContent = `${hpSlider.value} HP`;
+  // Compare Bar & Modal
+  const compareBar = document.getElementById('compare-bar');
+  const compareCount = document.getElementById('compare-count');
+  const clearCompareBtn = document.getElementById('clear-compare-btn');
+  const openCompareModalBtn = document.getElementById('open-compare-modal-btn');
+  const compareModal = document.getElementById('compare-modal');
+  const closeModalBtn = document.getElementById('close-modal-btn');
+  const modalMatrixContainer = document.getElementById('modal-matrix-container');
+
+  // AI Chat FAB & Drawer
+  const aiChatFab = document.getElementById('ai-chat-fab');
+  const aiChatDrawer = document.getElementById('ai-chat-drawer');
+  const closeDrawerBtn = document.getElementById('close-drawer-btn');
+  const chatForm = document.getElementById('chat-form');
+  const chatInput = document.getElementById('chat-input');
+  const chatMessages = document.getElementById('chat-messages');
+  const promptChips = document.querySelectorAll('.prompt-chip');
+
+  let currentCarsData = [];
+  let selectedFuelType = 'ALL';
+  let selectedCarsToCompare = new Set();
+
+  // Helper to calculate EMI
+  function calculateMonthlyEmi(price, dpPercent, interestRate, tenureYears) {
+    const downPayment = (price * dpPercent) / 100;
+    const loanAmount = price - downPayment;
+    const monthlyRate = interestRate / 12 / 100;
+    const totalMonths = tenureYears * 12;
+
+    const emi = Math.round(
+      (loanAmount * monthlyRate * Math.pow(1 + monthlyRate, totalMonths)) /
+      (Math.pow(1 + monthlyRate, totalMonths) - 1)
+    );
+    return emi > 0 ? `₹${emi.toLocaleString('en-IN')}/mo` : 'N/A';
+  }
+
+  // Update slider badge values
+  hpInput.addEventListener('input', () => hpVal.textContent = `${hpInput.value} HP`);
+  budgetInput.addEventListener('input', () => budgetVal.textContent = `₹${budgetInput.value} Lakh`);
+  dpInput.addEventListener('input', () => {
+    dpVal.textContent = `${dpInput.value}%`;
+    recalculateAllEmis();
+  });
+  irInput.addEventListener('input', () => {
+    irVal.textContent = `${irInput.value}%`;
+    recalculateAllEmis();
+  });
+  tenureInput.addEventListener('input', () => {
+    tenureVal.textContent = `${tenureInput.value} Yrs`;
+    recalculateAllEmis();
   });
 
-  // Update Budget Badge in real time
-  budgetSlider.addEventListener('input', () => {
-    budgetBadge.textContent = `₹${budgetSlider.value} Lakh`;
+  // Fuel Pills event listener
+  fuelPills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      fuelPills.forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      selectedFuelType = pill.dataset.fuel;
+      renderCars(currentCarsData);
+    });
   });
 
-  // Fetch cars data from the dashboard backend
-  async function fetchCompareCars() {
-    // Show loading, hide grids and states
-    loadingElement.classList.remove('hidden');
-    carsGrid.classList.add('hidden');
+  // Brand Filter listener
+  brandFilter.addEventListener('change', () => {
+    renderCars(currentCarsData);
+  });
+
+  // Recalculate EMIs on cards live
+  function recalculateAllEmis() {
+    const dp = Number(dpInput.value);
+    const ir = Number(irInput.value);
+    const tenure = Number(tenureInput.value);
+
+    document.querySelectorAll('.car-card').forEach(card => {
+      const price = Number(card.dataset.price);
+      const emiElem = card.querySelector('.card-emi-badge');
+      if (price && emiElem) {
+        emiElem.textContent = calculateMonthlyEmi(price, dp, ir, tenure);
+      }
+    });
+  }
+
+  // Fetch cars from backend
+  async function fetchCars(params = {}) {
+    loading.classList.remove('hidden');
     errorBox.classList.add('hidden');
     emptyState.classList.add('hidden');
-    resultCount.textContent = 'Querying MCP server...';
     carsGrid.innerHTML = '';
 
-    const hpValue = hpSlider.value;
-    // Convert Lakhs (e.g. 20) to full digits (e.g. 2000000) for the MCP query
-    const budgetValue = Number(budgetSlider.value) * 100000;
-    const sortBy = sortBySelect.value;
-    
-    const sortOrderElement = document.querySelector('input[name="sortOrder"]:checked');
-    const sortOrder = sortOrderElement ? sortOrderElement.value : 'asc';
-
-    const url = `/api/compare?horsepower=${hpValue}&budget=${budgetValue}&sortBy=${sortBy}&sortOrder=${sortOrder}`;
-
     try {
-      const response = await fetch(url);
-      const data = await response.json();
-
-      loadingElement.classList.add('hidden');
-
+      const queryParams = new URLSearchParams(params);
+      const response = await fetch(`/api/compare?${queryParams.toString()}`);
       if (!response.ok) {
-        throw new Error(data.error || 'Server returned an error');
+        const errData = await response.json();
+        throw new Error(errData.error || 'Failed to fetch comparison data');
       }
 
-      const cars = data.cars || [];
-      renderCars(cars);
-    } catch (error) {
-      console.error('Fetch error:', error);
-      loadingElement.classList.add('hidden');
-      errorText.textContent = error.message;
+      const data = await response.json();
+      currentCarsData = data.cars || [];
+      renderCars(currentCarsData);
+    } catch (err) {
+      errorText.textContent = err.message;
       errorBox.classList.remove('hidden');
-      resultCount.textContent = 'Query failed';
+    } finally {
+      loading.classList.add('hidden');
     }
   }
 
-  // Helper to check if image is a valid URL and not the "no.jpg" fallback
-  function isPlaceholderImage(imgUrl) {
-    if (!imgUrl) return true;
-    return imgUrl.includes('no.jpg') || imgUrl.includes('placeholder') || imgUrl === '';
-  }
-
-  // Render car cards in the grid
+  // Render car cards
   function renderCars(cars) {
-    resultCount.textContent = `Found ${cars.length} matching models`;
+    carsGrid.innerHTML = '';
+    
+    const selectedBrand = brandFilter.value;
+    let filtered = cars;
 
-    if (cars.length === 0) {
+    if (selectedBrand !== 'ALL') {
+      filtered = filtered.filter(c => c.company.toLowerCase() === selectedBrand.toLowerCase());
+    }
+
+    if (selectedFuelType !== 'ALL') {
+      filtered = filtered.filter(c => c.fuelType.toLowerCase().includes(selectedFuelType.toLowerCase()));
+    }
+
+    resultCount.textContent = `Found ${filtered.length} matching models`;
+
+    if (filtered.length === 0) {
       emptyState.classList.remove('hidden');
       return;
     }
 
-    carsGrid.classList.remove('hidden');
+    emptyState.classList.add('hidden');
 
-    cars.forEach(car => {
+    const dp = Number(dpInput.value);
+    const ir = Number(irInput.value);
+    const tenure = Number(tenureInput.value);
+
+    filtered.forEach(car => {
+      const emiText = calculateMonthlyEmi(car.price, dp, ir, tenure);
+      const isChecked = selectedCarsToCompare.has(car.model);
+
       const card = document.createElement('div');
       card.className = 'car-card';
-
-      // Setup Image HTML
-      let imageHtml = '';
-      if (isPlaceholderImage(car.image)) {
-        imageHtml = `
-          <div class="placeholder-image">
-            <i class="bx bx-image-alt"></i>
-            <span>No Image Available</span>
-          </div>
-        `;
-      } else {
-        imageHtml = `
-          <img class="car-image" src="${car.image}" alt="${car.model}" onerror="this.outerHTML='<div class=\"placeholder-image\"><i class=\"bx bx-image-alt\"></i><span>No Image Available</span></div>'">
-        `;
-      }
+      card.dataset.price = car.price;
+      card.dataset.model = car.model;
 
       card.innerHTML = `
-        <div class="image-container">
-          ${imageHtml}
-          <div class="brand-badge">${car.company}</div>
+        <div class="card-image-wrapper">
+          <img src="${car.image}" alt="${car.company} ${car.model}" onerror="this.src='https://www.auto-data.net/img/no.jpg'">
+          <span class="company-badge">${car.company}</span>
+          <span class="fuel-badge">${car.fuelType}</span>
         </div>
-        <div class="car-details-panel">
-          <div class="car-title-row">
-            <h3>${car.model}</h3>
-            <span class="price-tag">${car.formattedPrice}</span>
+        <div class="card-body">
+          <h3 class="car-model-title">${car.company} ${car.model}</h3>
+          <div class="car-price-row">
+            <span class="car-price">${car.formattedPrice}</span>
+            <span class="card-emi-badge">${emiText}</span>
           </div>
-          <div class="car-specs">
-            <span class="spec-item"><i class="bx bx-bolt-circle"></i> ${car.horsepower} HP</span>
-            <span class="spec-item"><i class="bx bxs-gas-pump"></i> ${car.fuelType}</span>
-            <span class="spec-item"><i class="bx bx-tachometer"></i> ${car.mileage}</span>
+          <div class="specs-grid">
+            <div class="spec-item"><i class="bx bx-tachometer"></i> <span>Power: <span class="val">${car.horsepower} HP</span></span></div>
+            <div class="spec-item"><i class="bx bx-gas-pump"></i> <span>Mileage: <span class="val">${car.mileage}</span></span></div>
           </div>
-          <p class="car-description">${car.details || 'No additional technical specifications listed.'}</p>
+          <div class="card-footer">
+            <label class="compare-checkbox-label">
+              <input type="checkbox" class="compare-checkbox" data-model="${car.model}" ${isChecked ? 'checked' : ''}>
+              <span>+ Compare</span>
+            </label>
+          </div>
         </div>
       `;
-      
+
       carsGrid.appendChild(card);
+    });
+
+    // Attach checkbox listeners
+    document.querySelectorAll('.compare-checkbox').forEach(chk => {
+      chk.addEventListener('change', (e) => {
+        const model = e.target.dataset.model;
+        if (e.target.checked) {
+          if (selectedCarsToCompare.size >= 3) {
+            alert('You can compare up to 3 cars at a time.');
+            e.target.checked = false;
+            return;
+          }
+          selectedCarsToCompare.add(model);
+        } else {
+          selectedCarsToCompare.delete(model);
+        }
+        updateCompareBar();
+      });
     });
   }
 
-  // Form Submit Handler
+  // Update Floating Compare Bar
+  function updateCompareBar() {
+    compareCount.textContent = selectedCarsToCompare.size;
+    if (selectedCarsToCompare.size > 0) {
+      compareBar.classList.remove('hidden');
+    } else {
+      compareBar.classList.add('hidden');
+    }
+  }
+
+  clearCompareBtn.addEventListener('click', () => {
+    selectedCarsToCompare.clear();
+    updateCompareBar();
+    document.querySelectorAll('.compare-checkbox').forEach(c => c.checked = false);
+  });
+
+  // Open Side-by-Side Comparison Modal
+  openCompareModalBtn.addEventListener('click', async () => {
+    if (selectedCarsToCompare.size === 0) return;
+
+    modalMatrixContainer.innerHTML = '<div class="spinner"></div><p style="text-align:center">Loading spec matrix...</p>';
+    compareModal.classList.remove('hidden');
+
+    try {
+      const models = Array.from(selectedCarsToCompare).join(',');
+      const res = await fetch(`/api/compare-specs?models=${encodeURIComponent(models)}`);
+      const data = await res.json();
+
+      renderComparisonMatrix(data.specMatrix || []);
+    } catch (err) {
+      modalMatrixContainer.innerHTML = `<p style="color:red">Failed to load comparison matrix: ${err.message}</p>`;
+    }
+  });
+
+  closeModalBtn.addEventListener('click', () => compareModal.classList.add('hidden'));
+
+  // Render Comparison Matrix with Green Badges
+  function renderComparisonMatrix(cars) {
+    if (cars.length === 0) {
+      modalMatrixContainer.innerHTML = '<p>No spec details available for selected cars.</p>';
+      return;
+    }
+
+    const minPrice = Math.min(...cars.map(c => c.price));
+    const maxHp = Math.max(...cars.map(c => c.horsepower));
+
+    let html = `
+      <table class="matrix-table">
+        <thead>
+          <tr>
+            <th>Specification</th>
+            ${cars.map(c => `<th>${c.company} ${c.model}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Showroom Price</strong></td>
+            ${cars.map(c => `<td><strong>${c.formattedPrice}</strong> ${c.price === minPrice ? '<span class="best-badge">Best Price</span>' : ''}</td>`).join('')}
+          </tr>
+          <tr>
+            <td><strong>Horsepower</strong></td>
+            ${cars.map(c => `<td>${c.horsepower} HP ${c.horsepower === maxHp ? '<span class="best-badge">Highest HP</span>' : ''}</td>`).join('')}
+          </tr>
+          <tr>
+            <td><strong>Mileage</strong></td>
+            ${cars.map(c => `<td>${c.mileage}</td>`).join('')}
+          </tr>
+          <tr>
+            <td><strong>Fuel Type</strong></td>
+            ${cars.map(c => `<td>${c.fuelType}</td>`).join('')}
+          </tr>
+          <tr>
+            <td><strong>Power-to-Weight</strong></td>
+            ${cars.map(c => `<td>${c.powerToWeightRatio || 'N/A'}</td>`).join('')}
+          </tr>
+          <tr>
+            <td><strong>Est. Annual Service</strong></td>
+            ${cars.map(c => `<td>${c.estimatedAnnualService || 'N/A'}</td>`).join('')}
+          </tr>
+        </tbody>
+      </table>
+    `;
+
+    modalMatrixContainer.innerHTML = html;
+  }
+
+  // AI Chat FAB & Drawer Handlers
+  aiChatFab.addEventListener('click', () => aiChatDrawer.classList.toggle('hidden'));
+  closeDrawerBtn.addEventListener('click', () => aiChatDrawer.classList.add('hidden'));
+
+  promptChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      chatInput.value = chip.dataset.prompt;
+      sendChatMessage(chip.dataset.prompt);
+    });
+  });
+
+  chatForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const prompt = chatInput.value.trim();
+    if (!prompt) return;
+    sendChatMessage(prompt);
+  });
+
+  async function sendChatMessage(prompt) {
+    appendMessage('user', prompt);
+    chatInput.value = '';
+
+    const loadingMsg = appendMessage('bot', 'AI Thinking...');
+
+    try {
+      const res = await fetch('/api/ai-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt })
+      });
+      const data = await res.json();
+      loadingMsg.remove();
+      appendMessage('bot', data.reply || 'No response returned');
+    } catch (err) {
+      loadingMsg.remove();
+      appendMessage('bot', `Error: ${err.message}`);
+    }
+  }
+
+  function appendMessage(role, text) {
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `message ${role === 'user' ? 'user-msg' : 'bot-msg'}`;
+    msgDiv.innerHTML = `<i class="bx ${role === 'user' ? 'bxs-user' : 'bxs-bot'}"></i> <div>${text.replace(/\n/g, '<br>')}</div>`;
+    chatMessages.appendChild(msgDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    return msgDiv;
+  }
+
+  // Initial Form Submit & Load
   filterForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    fetchCompareCars();
+    const sortOrder = document.querySelector('input[name="sortOrder"]:checked').value;
+    fetchCars({
+      horsepower: hpInput.value,
+      budget: Number(budgetInput.value) * 100000,
+      sortBy: document.getElementById('sortBy').value,
+      sortOrder: sortOrder
+    });
   });
 
   // Initial Load
-  fetchCompareCars();
+  fetchCars({
+    horsepower: hpInput.value,
+    budget: Number(budgetInput.value) * 100000,
+    sortBy: 'price',
+    sortOrder: 'asc'
+  });
 });

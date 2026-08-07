@@ -2,6 +2,10 @@ import express from 'express';
 import { spawn } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+import { GoogleGenAI } from '@google/genai';
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -149,6 +153,103 @@ app.get('/api/ev-savings', async (req, res) => {
     res.json(data);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// 5. Embedded AI Chat Endpoint for Web Dashboard Drawer
+app.post('/api/ai-chat', async (req, res) => {
+  const { prompt } = req.body;
+  if (!prompt || typeof prompt !== 'string') {
+    return res.status(400).json({ error: 'Valid prompt string is required' });
+  }
+
+  const apiKey = process.env.GEMINI_API_KEY;
+
+  try {
+    if (apiKey) {
+      const ai = new GoogleGenAI({ apiKey });
+
+      const compare_cars_tool = {
+        name: "compare_cars",
+        description: "Compare and filter cars across 10 major brands by horsepower and maximum budget.",
+        parameters: {
+          type: "OBJECT",
+          properties: {
+            horsepower: { type: "INTEGER", description: "Target horsepower (e.g. 180)." },
+            budget: { type: "INTEGER", description: "Maximum budget in INR (e.g. 2000000)." }
+          }
+        }
+      };
+
+      const compare_spec_sheet_tool = {
+        name: "compare_spec_sheet",
+        description: "Generates a technical spec comparison matrix for 2-4 car models (e.g. ['Creta', 'Nexon']).",
+        parameters: {
+          type: "OBJECT",
+          properties: {
+            models: { type: "ARRAY", items: { type: "STRING" }, description: "Array of model names." }
+          },
+          required: ["models"]
+        }
+      };
+
+      const system_instruction = "You are an expert car buying advisor. Provide clear, concise, bulleted Markdown advice with actionable car recommendations.";
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+          systemInstruction: system_instruction,
+          tools: [{ functionDeclarations: [compare_cars_tool as any, compare_spec_sheet_tool as any] }],
+          temperature: 0.3
+        }
+      });
+
+      if (response.functionCalls && response.functionCalls.length > 0) {
+        const call = response.functionCalls[0];
+        const toolName = call.name || 'compare_cars';
+        const args = (call.args || {}) as Record<string, any>;
+        const mcpResult = await invokeMcpTool(toolName, args);
+
+        const summaryResponse = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: `User Query: ${prompt}\n\nTool '${toolName}' executed result:\n${JSON.stringify(mcpResult, null, 2)}\n\nSynthesize this into a helpful, direct automotive recommendation response for the user.`,
+          config: { systemInstruction: system_instruction }
+        });
+
+        return res.json({ reply: summaryResponse.text, toolCalled: toolName });
+      }
+
+      return res.json({ reply: response.text });
+    }
+
+    // Smart fallback if GEMINI_API_KEY is not set
+    const lowerPrompt = prompt.toLowerCase();
+    if (lowerPrompt.includes('ev') || lowerPrompt.includes('electric') || lowerPrompt.includes('savings')) {
+      const evRes = await invokeMcpTool('calculate_ev_savings', { dailyKm: 50, evPrice: 1500000, petrolPrice: 1350000 });
+      return res.json({
+        reply: `### ⚡ EV vs Petrol Financial Analysis\n\n- **Daily Commute**: 50 km/day (18,250 km/year)\n- **Annual Petrol Fuel Cost**: ${evRes.annualFuelCostPetrol}\n- **Annual EV Charging Cost**: ${evRes.annualElectricityCostEV}\n- **Annual Savings**: **${evRes.annualSavings}**\n- **5-Year Savings**: **${evRes.totalSavingsInYears}**\n- **Break-Even Payback Period**: ${evRes.paybackPeriod}`,
+        toolCalled: 'calculate_ev_savings'
+      });
+    }
+
+    if (lowerPrompt.includes('compare') || lowerPrompt.includes('versus') || lowerPrompt.includes('vs')) {
+      const specRes = await invokeMcpTool('compare_spec_sheet', { models: ['Creta', 'Nexon'] });
+      return res.json({
+        reply: `### 🚗 Side-by-Side Comparison Matrix\n\n1. **Hyundai Creta**: Price ₹14.5 Lakh | 113 HP | Mileage 17.4 km/l | Power-to-Weight: 83.7 HP/Ton\n2. **Tata Nexon**: Price ₹10.5 Lakh | 118 HP | Mileage 17.0 km/l | Power-to-Weight: 87.4 HP/Ton\n\n**Recommendation**: Choose **Tata Nexon** for better power-to-weight value, or **Hyundai Creta** for refined highway cruising and spacious cabin.`,
+        toolCalled: 'compare_spec_sheet'
+      });
+    }
+
+    const carsRes = await invokeMcpTool('compare_cars', { budget: 2000000 });
+    const topCar = carsRes.cars?.[0] || { company: 'Hyundai', model: 'Creta', formattedPrice: '₹14.5 Lakh', horsepower: 115 };
+    return res.json({
+      reply: `### 🌟 Recommended Vehicle Recommendation\n\nBased on your query, the **${topCar.company} ${topCar.model}** is an outstanding match!\n\n- **Showroom Price**: ${topCar.formattedPrice}\n- **Horsepower**: ${topCar.horsepower} HP\n- **Mileage**: ${topCar.mileage || '17 km/l'}\n- **Fuel Type**: ${topCar.fuelType || 'Petrol'}\n\n*Tip: Use the side-by-side comparison drawer to compare up to 3 cars live on your dashboard!*`,
+      toolCalled: 'compare_cars'
+    });
+
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to process AI query' });
   }
 });
 
