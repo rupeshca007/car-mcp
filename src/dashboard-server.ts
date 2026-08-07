@@ -272,7 +272,27 @@ app.get('/api/export-dossier', async (req, res) => {
   }
 });
 
-// 12. Embedded AI Chat Endpoint for Web Dashboard Drawer
+// 12. Endpoint for manage_wishlist
+app.get('/api/wishlist', async (req, res) => {
+  try {
+    const data = await invokeMcpTool('manage_wishlist', { action: 'list' });
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/wishlist', async (req, res) => {
+  const { action, carModel } = req.body;
+  try {
+    const data = await invokeMcpTool('manage_wishlist', { action: action || 'add', carModel });
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 13. Embedded AI Chat Endpoint for Web Dashboard Drawer
 app.post('/api/ai-chat', async (req, res) => {
   const { prompt } = req.body;
   if (!prompt || typeof prompt !== 'string') {
@@ -297,18 +317,6 @@ app.post('/api/ai-chat', async (req, res) => {
         }
       };
 
-      const evaluate_safety_rating_tool = {
-        name: "evaluate_safety_rating",
-        description: "Evaluates NCAP crash safety star ratings and ADAS features.",
-        parameters: {
-          type: "OBJECT",
-          properties: {
-            carModel: { type: "STRING" }
-          },
-          required: ["carModel"]
-        }
-      };
-
       const system_instruction = "You are an expert car buying advisor. Provide clear, concise, bulleted Markdown advice with actionable car recommendations.";
 
       const response = await ai.models.generateContent({
@@ -316,7 +324,7 @@ app.post('/api/ai-chat', async (req, res) => {
         contents: prompt,
         config: {
           systemInstruction: system_instruction,
-          tools: [{ functionDeclarations: [compare_cars_tool as any, evaluate_safety_rating_tool as any] }],
+          tools: [{ functionDeclarations: [compare_cars_tool as any] }],
           temperature: 0.3
         }
       });
@@ -337,24 +345,6 @@ app.post('/api/ai-chat', async (req, res) => {
       }
 
       return res.json({ reply: response.text });
-    }
-
-    // Smart fallback if GEMINI_API_KEY is not set
-    const lowerPrompt = prompt.toLowerCase();
-    if (lowerPrompt.includes('safety') || lowerPrompt.includes('ncap') || lowerPrompt.includes('stars') || lowerPrompt.includes('crash')) {
-      const sRes = await invokeMcpTool('evaluate_safety_rating', { carModel: 'Tata Nexon' });
-      return res.json({
-        reply: `### 🛡️ Safety & NCAP Crash Test Analysis (${sRes.carModel})\n\n- **Crash Rating**: **${sRes.ncapCrashTestRating}**\n- **Airbag Count**: ${sRes.standardAirbagCount} Standard Airbags\n- **ADAS Suite**: ${sRes.adasSuite}\n- **Key Features**: ${sRes.safetyFeatures.join(', ')}\n- **Structural Safety**: ${sRes.structuralIntegrity}`,
-        toolCalled: 'evaluate_safety_rating'
-      });
-    }
-
-    if (lowerPrompt.includes('dossier') || lowerPrompt.includes('pdf') || lowerPrompt.includes('report')) {
-      const dRes = await invokeMcpTool('export_buying_dossier', { carModel: 'Hyundai Creta', customerName: 'Valued Buyer', city: 'Bangalore' });
-      return res.json({
-        reply: dRes.dossierMarkdown,
-        toolCalled: 'export_buying_dossier'
-      });
     }
 
     const carsRes = await invokeMcpTool('compare_cars', { budget: 2000000 });

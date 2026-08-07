@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  car-mcp-dashboard:
+    build: .
+    container_name: car-mcp-dashboard
+    restart: always
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    command: npm run start:dashboard
+
+  car-mcp-agent-web:
+    build: .
+    container_name: car-mcp-agent-web
+    restart: always
+    ports:
+      - "8501:8501"
+    environment:
+      - BACKEND_URL=http://car-mcp-dashboard:4000
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    command: python3 -m streamlit run src/app.py --server.port=8501 --server.address=0.0.0.0
+    depends_on:
+      - car-mcp-dashboard

@@ -57,7 +57,7 @@ with st.sidebar:
     st.image("https://www.auto-data.net/img/no.jpg", width=120)
     st.title("Autonomous Tools")
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["🎯 Match", "🏙️ On-Road", "💵 Trade-In", "🛡️ Safety", "📄 Dossier"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🎯 Match", "🏙️ On-Road", "💵 Trade-In", "🛡️ Safety", "📄 Dossier", "❤️ Wishlist"])
 
     with tab1:
         use_case = st.selectbox(
@@ -177,6 +177,21 @@ with st.sidebar:
                     )
                 else:
                     st.error("Failed to generate dossier.")
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+    with tab6:
+        st.subheader("❤️ Saved Vehicle Wishlist")
+        if st.button("Refresh Wishlist"):
+            try:
+                res = requests.get(f"{BACKEND_URL}/api/wishlist")
+                if res.status_code == 200:
+                    wdata = res.json()
+                    st.write(f"**Total Saved Models**: {wdata['wishlistCount']}")
+                    for model in wdata.get("savedModels", []):
+                        st.markdown(f"- ❤️ **{model}**")
+                else:
+                    st.error("Failed to fetch wishlist.")
             except Exception as e:
                 st.error(f"Error: {e}")
 

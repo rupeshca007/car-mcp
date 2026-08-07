@@ -8,7 +8,7 @@ import fs from "fs";
 export const server = new Server(
   {
     name: "car-aggregator",
-    version: "1.4.0",
+    version: "1.5.0",
   },
   {
     capabilities: {
@@ -37,6 +37,8 @@ interface NormalizedCar {
   mileage: string;
   fuelType: string;
 }
+
+const savedWishlist: Set<string> = new Set(["Hyundai Creta", "Tata Nexon EV"]);
 
 function formatPrice(price: number): string {
   if (price >= 10000000) {
@@ -391,12 +393,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            carModel: { type: "string", description: "Target vehicle model (e.g., 'Hyundai Creta')." },
-            customerName: { type: "string", description: "Customer full name." },
-            customerPhone: { type: "string", description: "Customer 10-digit phone number." },
-            pincode: { type: "string", description: "6-digit area pincode." },
-            preferredDate: { type: "string", description: "Preferred date for test drive (e.g. '2026-08-10')." },
-            timeSlot: { type: "string", description: "Time slot: Morning, Afternoon, or Evening." }
+            carModel: { type: "string" },
+            customerName: { type: "string" },
+            customerPhone: { type: "string" },
+            pincode: { type: "string" },
+            preferredDate: { type: "string" },
+            timeSlot: { type: "string" }
           },
           required: ["carModel", "customerName", "customerPhone", "pincode", "preferredDate"]
         }
@@ -417,7 +419,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "get_on_road_price",
-        description: "Calculates exact city-wise On-Road Price breakdown (Ex-Showroom, RTO Road Tax, Comprehensive Insurance, Fastag & Reg, TCS) for major Indian cities.",
+        description: "Calculates exact city-wise On-Road Price breakdown for major Indian cities.",
         inputSchema: {
           type: "object",
           properties: {
@@ -456,28 +458,40 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "evaluate_safety_rating",
-        description: "Evaluates Global NCAP / Bharat NCAP star crash test ratings (1-5 Stars), airbag count, ISOFIX mounts, and ADAS Level 2 safety features.",
+        description: "Evaluates Global NCAP / Bharat NCAP star crash test ratings, airbag count, and ADAS Level 2 safety features.",
         inputSchema: {
           type: "object",
           properties: {
-            carModel: { type: "string", description: "Vehicle model name (e.g., 'Tata Nexon')." }
+            carModel: { type: "string" }
           },
           required: ["carModel"]
         }
       },
       {
         name: "export_buying_dossier",
-        description: "Generates a comprehensive downloadable vehicle buying dossier report with spec sheets, loan EMI schedules, and test drive receipts.",
+        description: "Generates a comprehensive downloadable vehicle buying dossier report.",
         inputSchema: {
           type: "object",
           properties: {
-            carModel: { type: "string", description: "Target vehicle model." },
-            customerName: { type: "string", description: "Buyer full name." },
-            city: { type: "string", description: "Target City." },
+            carModel: { type: "string" },
+            customerName: { type: "string" },
+            city: { type: "string" },
             downPaymentPercent: { type: "number" },
             loanTenureYears: { type: "number" }
           },
           required: ["carModel", "customerName"]
+        }
+      },
+      {
+        name: "manage_wishlist",
+        description: "Adds, removes, or lists bookmarked favorite car models saved in user wishlist.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            action: { type: "string", enum: ["add", "remove", "list"] },
+            carModel: { type: "string" }
+          },
+          required: ["action"]
         }
       }
     ]
@@ -1001,7 +1015,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 - **Specialist Line**: 1800-CAR-ADVISOR
 
 ---
-*Generated autonomously by MCP Car Aggregator Protocol v1.4*
+*Generated autonomously by MCP Car Aggregator Protocol v1.5*
 `;
 
     return {
@@ -1016,6 +1030,32 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             dossierMarkdown: dossierMarkdown,
             formattedMonthlyEmi: `₹${emi.toLocaleString("en-IN")}/month`,
             downPayment: formatPrice(dpAmt)
+          }, null, 2)
+        }
+      ]
+    };
+  }
+
+  if (name === "manage_wishlist") {
+    const action = String(args.action || "list");
+    const carModel = args.carModel ? String(args.carModel) : "";
+
+    if (action === "add" && carModel) {
+      savedWishlist.add(carModel);
+    } else if (action === "remove" && carModel) {
+      savedWishlist.delete(carModel);
+    }
+
+    const currentList = Array.from(savedWishlist);
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            actionPerformed: action,
+            wishlistCount: currentList.length,
+            savedModels: currentList
           }, null, 2)
         }
       ]
