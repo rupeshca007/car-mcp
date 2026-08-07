@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Car Aggregator MCP Dashboard</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Boxicons -->
+  <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+
+  <!-- Background decorative glows -->
+  <div class="glow glow-1"></div>
+  <div class="glow glow-2"></div>
+
+  <div class="app-container">
+    
+    <!-- Sidebar / Filters Panel -->
+    <aside class="sidebar">
+      <div class="brand">
+        <i class="bx bxs-car-mechanic logo-icon"></i>
+        <h1>Car Aggregator <span>MCP</span></h1>
+      </div>
+      
+      <p class="sidebar-tagline">Universal AI Middleman Client</p>
+
+      <form id="filter-form" class="filters-container">
+        
+        <!-- Target Horsepower Filter -->
+        <div class="filter-group">
+          <label for="horsepower">
+            <span>Target Horsepower</span>
+            <span id="hp-val" class="badge">150 HP</span>
+          </label>
+          <div class="range-wrapper">
+            <input type="range" id="horsepower" min="50" max="400" value="150" step="5">
+          </div>
+          <span class="field-desc">Matches cars within ±15% range</span>
+        </div>
+
+        <!-- Maximum Budget Filter -->
+        <div class="filter-group">
+          <label for="budget">
+            <span>Max Budget (₹ Lakhs)</span>
+            <span id="budget-val" class="badge">₹20 Lakh</span>
+          </label>
+          <div class="range-wrapper">
+            <input type="range" id="budget" min="4" max="50" value="20" step="1">
+          </div>
+        </div>
+
+        <!-- Sort By Field -->
+        <div class="filter-group">
+          <label for="sortBy">Sort Results By</label>
+          <div class="select-wrapper">
+            <select id="sortBy">
+              <option value="price">Showroom Price</option>
+              <option value="horsepower">Horsepower (HP)</option>
+            </select>
+            <i class="bx bx-chevron-down select-arrow"></i>
+          </div>
+        </div>
+
+        <!-- Sort Order Direction -->
+        <div class="filter-group">
+          <label>Direction</label>
+          <div class="radio-group">
+            <label class="radio-label">
+              <input type="radio" name="sortOrder" value="asc" checked>
+              <span class="radio-custom">Ascending</span>
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="sortOrder" value="desc">
+              <span class="radio-custom">Descending</span>
+            </label>
+          </div>
+        </div>
+
+        <button type="submit" id="search-btn">
+          <i class="bx bx-search-alt"></i> Run Aggregator Query
+        </button>
+      </form>
+
+      <div class="sidebar-footer">
+        <div class="status-indicator">
+          <span class="status-dot green"></span>
+          <span>Live RapidAPI Database Connected</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Results Area -->
+    <main class="main-content">
+      <header class="content-header">
+        <div class="header-title">
+          <h2>Vehicle Comparisons</h2>
+          <p id="result-count">Found 0 matching models</p>
+        </div>
+        <div class="header-api-info">
+          <span class="api-pill"><i class="bx bx-network-chart"></i> MCP Stdio Protocol</span>
+          <span class="api-pill"><i class="bx bx-cabinet"></i> 3 Brand APIs</span>
+        </div>
+      </header>
+
+      <!-- Results Grid -->
+      <section class="results-wrapper">
+        <div id="loading" class="loading-container hidden">
+          <div class="spinner"></div>
+          <p>MCP Aggregator querying RapidAPI for MG, Hyundai, and Suzuki concurrently...</p>
+        </div>
+        
+        <div id="error-box" class="error-container hidden">
+          <i class="bx bx-error-alt"></i>
+          <h3>Query Failed</h3>
+          <p id="error-text">Failed to fetch data from MCP server.</p>
+        </div>
+
+        <div id="empty-state" class="empty-state-container hidden">
+          <i class="bx bx-car"></i>
+          <h3>No Cars Match Your Filters</h3>
+          <p>Try increasing your budget or expanding your target horsepower range.</p>
+        </div>
+
+        <div id="cars-grid" class="cars-grid">
+          <!-- Dynamically populated car cards -->
+        </div>
+      </section>
+    </main>
+
+  </div>
+
+  <script src="index.js"></script>
+</body>
+</html>
