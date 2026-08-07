@@ -38,9 +38,9 @@ async def main():
                 print("=======================================================")
                 print("Ask a question like:")
                 print(" - 'Find SUVs around 180 HP under 20 Lakhs'")
+                print(" - 'Calculate personalized match score for family of 5'")
+                print(" - 'Book a test drive for Hyundai Creta at pincode 560001'")
                 print(" - 'Compare Creta vs Nexon vs Seltos side by side'")
-                print(" - 'Calculate total 5-year cost of ownership for a 15 Lakh car'")
-                print(" - 'How much will I save buying an EV if I drive 50 km daily?'")
                 print("Type 'exit' or 'quit' to end the session.")
                 print("=======================================================")
                 
@@ -76,7 +76,7 @@ async def main():
                     print(f"\n[AI Agent] Selected Use Case: {use_case}")
                     print("AI: Thinking...")
 
-                    # 1. Function declarations for MCP tools
+                    # Function declarations for MCP tools
                     compare_cars_tool = types.FunctionDeclaration(
                         name="compare_cars",
                         description="Compare and filter cars across 10 major brands by horsepower and maximum budget.",
@@ -114,10 +114,6 @@ async def main():
                             type=types.Type.OBJECT,
                             properties={
                                 "carPrice": types.Schema(type=types.Type.INTEGER, description="Price of vehicle in INR (e.g. 1500000)."),
-                                "downPaymentPercent": types.Schema(type=types.Type.INTEGER, description="Down payment % (default 20)."),
-                                "annualKm": types.Schema(type=types.Type.INTEGER, description="Annual driving in km (default 12000)."),
-                                "loanTenureYears": types.Schema(type=types.Type.INTEGER, description="Tenure in years (default 5)."),
-                                "interestRate": types.Schema(type=types.Type.NUMBER, description="Interest rate % (default 8.5)."),
                                 "fuelType": types.Schema(type=types.Type.STRING, description="Fuel type: Petrol, Diesel, Electric, Hybrid.")
                             },
                             required=["carPrice"]
@@ -132,18 +128,44 @@ async def main():
                             properties={
                                 "dailyKm": types.Schema(type=types.Type.INTEGER, description="Daily distance in km (e.g. 50)."),
                                 "evPrice": types.Schema(type=types.Type.INTEGER, description="EV price in INR (e.g. 1500000)."),
-                                "petrolPrice": types.Schema(type=types.Type.INTEGER, description="Petrol car price in INR (e.g. 1350000)."),
-                                "electricityRatePerKwh": types.Schema(type=types.Type.NUMBER, description="Electricity rate/kWh (default 8)."),
-                                "petrolPricePerLiter": types.Schema(type=types.Type.NUMBER, description="Petrol price/L (default 100)."),
-                                "ownershipYears": types.Schema(type=types.Type.INTEGER, description="Ownership duration in years (default 5).")
+                                "petrolPrice": types.Schema(type=types.Type.INTEGER, description="Petrol car price in INR (e.g. 1350000).")
                             },
                             required=["dailyKm", "evPrice", "petrolPrice"]
                         )
                     )
 
+                    book_test_drive_tool = types.FunctionDeclaration(
+                        name="book_test_drive",
+                        description="Books a dealership test drive booking request for a vehicle model.",
+                        parameters=types.Schema(
+                            type=types.Type.OBJECT,
+                            properties={
+                                "carModel": types.Schema(type=types.Type.STRING, description="Vehicle model."),
+                                "customerName": types.Schema(type=types.Type.STRING, description="Customer name."),
+                                "customerPhone": types.Schema(type=types.Type.STRING, description="Customer phone."),
+                                "pincode": types.Schema(type=types.Type.STRING, description="Pincode."),
+                                "preferredDate": types.Schema(type=types.Type.STRING, description="Preferred date.")
+                            },
+                            required=["carModel", "customerName", "customerPhone", "pincode", "preferredDate"]
+                        )
+                    )
+
+                    calculate_match_score_tool = types.FunctionDeclaration(
+                        name="calculate_match_score",
+                        description="Calculates personalized 0-100% compatibility match scores for vehicles.",
+                        parameters=types.Schema(
+                            type=types.Type.OBJECT,
+                            properties={
+                                "useCase": types.Schema(type=types.Type.STRING, description="Primary use case."),
+                                "maxBudget": types.Schema(type=types.Type.INTEGER, description="Max budget in INR.")
+                            },
+                            required=["useCase", "maxBudget"]
+                        )
+                    )
+
                     system_instruction = (
                         "You are an expert automotive analyst and vehicle buying advisor.\n"
-                        "Utilize the appropriate MCP tool (compare_cars, compare_spec_sheet, calculate_tco, or calculate_ev_savings) based on user query.\n"
+                        "Utilize the appropriate MCP tool based on user query.\n"
                         "Synthesize the JSON response into a clear, professional, well-formatted Markdown summary with recommendation highlights and bullet points."
                     )
 
@@ -152,7 +174,9 @@ async def main():
                             compare_cars_tool,
                             compare_spec_sheet_tool,
                             calculate_tco_tool,
-                            calculate_ev_savings_tool
+                            calculate_ev_savings_tool,
+                            book_test_drive_tool,
+                            calculate_match_score_tool
                         ])]
 
                         response = client.models.generate_content(

@@ -156,7 +156,43 @@ app.get('/api/ev-savings', async (req, res) => {
   }
 });
 
-// 5. Embedded AI Chat Endpoint for Web Dashboard Drawer
+// 5. Endpoint for book_test_drive
+app.post('/api/book-test-drive', async (req, res) => {
+  const { carModel, customerName, customerPhone, pincode, preferredDate, timeSlot } = req.body;
+
+  try {
+    const data = await invokeMcpTool('book_test_drive', {
+      carModel,
+      customerName,
+      customerPhone,
+      pincode,
+      preferredDate,
+      timeSlot
+    });
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 6. Endpoint for calculate_match_score
+app.get('/api/match-score', async (req, res) => {
+  const { useCase, familySize, annualKm, maxBudget } = req.query;
+
+  try {
+    const data = await invokeMcpTool('calculate_match_score', {
+      useCase: String(useCase || 'City Commuting'),
+      familySize: Number(familySize || 4),
+      annualKm: Number(annualKm || 12000),
+      maxBudget: Number(maxBudget || 2000000)
+    });
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 7. Embedded AI Chat Endpoint for Web Dashboard Drawer
 app.post('/api/ai-chat', async (req, res) => {
   const { prompt } = req.body;
   if (!prompt || typeof prompt !== 'string') {
@@ -183,13 +219,29 @@ app.post('/api/ai-chat', async (req, res) => {
 
       const compare_spec_sheet_tool = {
         name: "compare_spec_sheet",
-        description: "Generates a technical spec comparison matrix for 2-4 car models (e.g. ['Creta', 'Nexon']).",
+        description: "Generates a technical spec comparison matrix for 2-4 car models.",
         parameters: {
           type: "OBJECT",
           properties: {
             models: { type: "ARRAY", items: { type: "STRING" }, description: "Array of model names." }
           },
           required: ["models"]
+        }
+      };
+
+      const book_test_drive_tool = {
+        name: "book_test_drive",
+        description: "Books a test drive appointment for a vehicle model.",
+        parameters: {
+          type: "OBJECT",
+          properties: {
+            carModel: { type: "STRING" },
+            customerName: { type: "STRING" },
+            customerPhone: { type: "STRING" },
+            pincode: { type: "STRING" },
+            preferredDate: { type: "STRING" }
+          },
+          required: ["carModel", "customerName", "customerPhone", "pincode", "preferredDate"]
         }
       };
 
@@ -200,7 +252,7 @@ app.post('/api/ai-chat', async (req, res) => {
         contents: prompt,
         config: {
           systemInstruction: system_instruction,
-          tools: [{ functionDeclarations: [compare_cars_tool as any, compare_spec_sheet_tool as any] }],
+          tools: [{ functionDeclarations: [compare_cars_tool as any, compare_spec_sheet_tool as any, book_test_drive_tool as any] }],
           temperature: 0.3
         }
       });
@@ -225,19 +277,25 @@ app.post('/api/ai-chat', async (req, res) => {
 
     // Smart fallback if GEMINI_API_KEY is not set
     const lowerPrompt = prompt.toLowerCase();
+    if (lowerPrompt.includes('book') || lowerPrompt.includes('test drive') || lowerPrompt.includes('drive')) {
+      const tdRes = await invokeMcpTool('book_test_drive', {
+        carModel: 'Hyundai Creta',
+        customerName: 'Guest User',
+        customerPhone: '9876543210',
+        pincode: '560001',
+        preferredDate: '2026-08-10'
+      });
+      return res.json({
+        reply: `### 🚗 Test Drive Booking Confirmation\n\n- **Booking Reference**: \`${tdRes.bookingId}\`\n- **Vehicle**: **${tdRes.vehicleRequested}**\n- **Slot**: ${tdRes.appointmentSlot}\n- **Assigned Dealer**: ${tdRes.assignedDealership}\n\n*A dealership manager will contact you shortly at ${tdRes.customerPhone} to finalize your test drive!*`,
+        toolCalled: 'book_test_drive'
+      });
+    }
+
     if (lowerPrompt.includes('ev') || lowerPrompt.includes('electric') || lowerPrompt.includes('savings')) {
       const evRes = await invokeMcpTool('calculate_ev_savings', { dailyKm: 50, evPrice: 1500000, petrolPrice: 1350000 });
       return res.json({
         reply: `### ⚡ EV vs Petrol Financial Analysis\n\n- **Daily Commute**: 50 km/day (18,250 km/year)\n- **Annual Petrol Fuel Cost**: ${evRes.annualFuelCostPetrol}\n- **Annual EV Charging Cost**: ${evRes.annualElectricityCostEV}\n- **Annual Savings**: **${evRes.annualSavings}**\n- **5-Year Savings**: **${evRes.totalSavingsInYears}**\n- **Break-Even Payback Period**: ${evRes.paybackPeriod}`,
         toolCalled: 'calculate_ev_savings'
-      });
-    }
-
-    if (lowerPrompt.includes('compare') || lowerPrompt.includes('versus') || lowerPrompt.includes('vs')) {
-      const specRes = await invokeMcpTool('compare_spec_sheet', { models: ['Creta', 'Nexon'] });
-      return res.json({
-        reply: `### 🚗 Side-by-Side Comparison Matrix\n\n1. **Hyundai Creta**: Price ₹14.5 Lakh | 113 HP | Mileage 17.4 km/l | Power-to-Weight: 83.7 HP/Ton\n2. **Tata Nexon**: Price ₹10.5 Lakh | 118 HP | Mileage 17.0 km/l | Power-to-Weight: 87.4 HP/Ton\n\n**Recommendation**: Choose **Tata Nexon** for better power-to-weight value, or **Hyundai Creta** for refined highway cruising and spacious cabin.`,
-        toolCalled: 'compare_spec_sheet'
       });
     }
 

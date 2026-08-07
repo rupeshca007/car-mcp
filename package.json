@@ -1,6 +1,6 @@
 {
   "name": "car-aggregator-mcp",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "An MCP server that aggregates and compares car data from multiple mock manufacturer APIs",
   "main": "dist/index.js",
   "type": "module",
@@ -10,7 +10,8 @@
     "start:mock": "node --loader ts-node/esm src/mock-apis.ts",
     "dev": "node --loader ts-node/esm src/index.ts",
     "inspect": "npx @modelcontextprotocol/inspector node dist/index.js",
-    "start:dashboard": "node dist/dashboard-server.js"
+    "start:dashboard": "node dist/dashboard-server.js",
+    "start:agent-web": "python3 -m streamlit run src/app.py"
   },
   "keywords": [
     "mcp",

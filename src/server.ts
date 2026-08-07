@@ -8,7 +8,7 @@ import fs from "fs";
 export const server = new Server(
   {
     name: "car-aggregator",
-    version: "1.1.0",
+    version: "1.2.0",
   },
   {
     capabilities: {
@@ -164,7 +164,7 @@ async function fetchNormalizedCars(targetBrands: string[] = ALL_BRANDS): Promise
           "x-rapidapi-key": apiKey,
           "x-rapidapi-host": apiHost
         },
-        signal: AbortSignal.timeout(4000)
+        signal: AbortSignal.timeout(3500)
       });
       const duration = Date.now() - startTime;
       if (!res.ok) {
@@ -258,6 +258,17 @@ async function fetchNormalizedCars(targetBrands: string[] = ALL_BRANDS): Promise
   return allCars;
 }
 
+function getFallbackCatalog(): NormalizedCar[] {
+  return [
+    { company: "Hyundai", model: "Creta", horsepower: 113, price: 1450000, formattedPrice: "₹14.5 Lakh", image: "https://www.hyundai.com/content/dam/hyundai/in/en/data/find-a-car/Creta/Highlights/pc/creta_model_pc.png", details: "Spacious family SUV", mileage: "17.4 km/l", fuelType: "Petrol" },
+    { company: "Tata", model: "Nexon", horsepower: 118, price: 1050000, formattedPrice: "₹10.5 Lakh", image: "https://cars.tatamotors.com/images/nexon/nexon-suv.png", details: "5-Star Safety Compact SUV", mileage: "17.0 km/l", fuelType: "Petrol" },
+    { company: "Mahindra", model: "Thar", horsepower: 130, price: 1400000, formattedPrice: "₹14.0 Lakh", image: "https://www.auto-data.net/img/no.jpg", details: "4x4 Offroad SUV", mileage: "15.2 km/l", fuelType: "Diesel" },
+    { company: "Kia", model: "Seltos", horsepower: 113, price: 1500000, formattedPrice: "₹15.0 Lakh", image: "https://www.auto-data.net/img/no.jpg", details: "Feature-packed SUV", mileage: "16.8 km/l", fuelType: "Petrol" },
+    { company: "Toyota", model: "Innova Hycross", horsepower: 183, price: 2400000, formattedPrice: "₹24.0 Lakh", image: "https://www.auto-data.net/img/no.jpg", details: "Premium 7-seater Hybrid MPV", mileage: "23.2 km/l", fuelType: "Hybrid" },
+    { company: "Tata", model: "Nexon EV", horsepower: 141, price: 1650000, formattedPrice: "₹16.5 Lakh", image: "https://www.auto-data.net/img/no.jpg", details: "Long Range Electric SUV", mileage: "N/A (EV)", fuelType: "Electric" }
+  ];
+}
+
 function createFallbackCarSpec(targetModel: string): NormalizedCar {
   const lower = targetModel.toLowerCase();
   let company = "Generic";
@@ -320,113 +331,88 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     tools: [
       {
         name: "compare_cars",
-        description: "Compare and filter cars across 10 major brands (MG, Hyundai, Suzuki, Tata, Mahindra, Kia, Toyota, BMW, Audi, Mercedes) by target horsepower and maximum budget.",
+        description: "Compare and filter cars across 10 major brands by target horsepower and maximum budget.",
         inputSchema: {
           type: "object",
           properties: {
-            horsepower: {
-              type: "number",
-              description: "Target horsepower (e.g., 180). Matches cars around this value (+/- 15% tolerance)."
-            },
-            budget: {
-              type: "number",
-              description: "Maximum budget in INR (e.g., 2000000 for ₹20 Lakh)."
-            },
-            sortBy: {
-              type: "string",
-              enum: ["price", "horsepower"],
-              description: "Field to sort by (default: price)."
-            },
-            sortOrder: {
-              type: "string",
-              enum: ["asc", "desc"],
-              description: "Sort direction (default: asc)."
-            }
+            horsepower: { type: "number" },
+            budget: { type: "number" },
+            sortBy: { type: "string", enum: ["price", "horsepower"] },
+            sortOrder: { type: "string", enum: ["asc", "desc"] }
           }
         }
       },
       {
         name: "compare_spec_sheet",
-        description: "Generates a detailed head-to-head technical comparison matrix for 2 to 4 specific car models (e.g. ['Creta', 'Nexon', 'Seltos']). Returns side-by-side specs including Price, HP, Mileage, Fuel Type, Power-to-Weight, and 5-Year Cost metrics.",
+        description: "Generates a detailed head-to-head technical comparison matrix for 2 to 4 specific car models.",
         inputSchema: {
           type: "object",
           properties: {
-            models: {
-              type: "array",
-              items: { type: "string" },
-              description: "List of 2 to 4 car model names to compare side-by-side (e.g. ['Creta', 'Nexon'])."
-            }
+            models: { type: "array", items: { type: "string" } }
           },
           required: ["models"]
         }
       },
       {
         name: "calculate_tco",
-        description: "Calculates the Total Cost of Ownership (TCO) over 5 years and monthly loan EMI for a car based on price, down payment, loan interest rate, annual driving, and fuel type.",
+        description: "Calculates the Total Cost of Ownership (TCO) over 5 years and monthly loan EMI for a car.",
         inputSchema: {
           type: "object",
           properties: {
-            carPrice: {
-              type: "number",
-              description: "On-road or ex-showroom price of the vehicle in INR (e.g., 1500000 for ₹15 Lakh)."
-            },
-            downPaymentPercent: {
-              type: "number",
-              description: "Percentage of price paid upfront as down payment (default: 20%)."
-            },
-            annualKm: {
-              type: "number",
-              description: "Estimated annual driving distance in km (default: 12000 km)."
-            },
-            loanTenureYears: {
-              type: "number",
-              description: "Loan duration in years (default: 5 years)."
-            },
-            interestRate: {
-              type: "number",
-              description: "Annual bank interest rate percentage (default: 8.5%)."
-            },
-            fuelType: {
-              type: "string",
-              enum: ["Petrol", "Diesel", "Electric", "Hybrid"],
-              description: "Fuel type of the car (default: Petrol)."
-            }
+            carPrice: { type: "number" },
+            downPaymentPercent: { type: "number" },
+            annualKm: { type: "number" },
+            loanTenureYears: { type: "number" },
+            interestRate: { type: "number" },
+            fuelType: { type: "string" }
           },
           required: ["carPrice"]
         }
       },
       {
         name: "calculate_ev_savings",
-        description: "Calculates fuel vs electricity cost savings and break-even payback period of purchasing an Electric Vehicle (EV) compared to a Petrol vehicle based on daily commuting distance.",
+        description: "Calculates fuel vs electricity cost savings and break-even payback period of purchasing an EV.",
         inputSchema: {
           type: "object",
           properties: {
-            dailyKm: {
-              type: "number",
-              description: "Daily driving distance in kilometers (e.g., 50 km/day)."
-            },
-            evPrice: {
-              type: "number",
-              description: "Purchase price of the Electric Vehicle in INR (e.g., 1500000)."
-            },
-            petrolPrice: {
-              type: "number",
-              description: "Purchase price of the alternative Petrol vehicle in INR (e.g., 1350000)."
-            },
-            electricityRatePerKwh: {
-              type: "number",
-              description: "Home/Public EV charging cost per kWh in INR (default: ₹8/kWh)."
-            },
-            petrolPricePerLiter: {
-              type: "number",
-              description: "Current petrol price per liter in INR (default: ₹100/L)."
-            },
-            ownershipYears: {
-              type: "number",
-              description: "Ownership duration in years to calculate cumulative savings (default: 5 years)."
-            }
+            dailyKm: { type: "number" },
+            evPrice: { type: "number" },
+            petrolPrice: { type: "number" },
+            electricityRatePerKwh: { type: "number" },
+            petrolPricePerLiter: { type: "number" },
+            ownershipYears: { type: "number" }
           },
           required: ["dailyKm", "evPrice", "petrolPrice"]
+        }
+      },
+      {
+        name: "book_test_drive",
+        description: "Drafts and confirms a dealership test drive booking request for a vehicle model based on user contact info and pincode.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            carModel: { type: "string", description: "Target vehicle model (e.g., 'Hyundai Creta')." },
+            customerName: { type: "string", description: "Customer full name." },
+            customerPhone: { type: "string", description: "Customer 10-digit phone number." },
+            pincode: { type: "string", description: "6-digit area pincode." },
+            preferredDate: { type: "string", description: "Preferred date for test drive (e.g. '2026-08-10')." },
+            timeSlot: { type: "string", description: "Time slot: Morning, Afternoon, or Evening." }
+          },
+          required: ["carModel", "customerName", "customerPhone", "pincode", "preferredDate"]
+        }
+      },
+      {
+        name: "calculate_match_score",
+        description: "Calculates a 0-100% personalized compatibility match score for cars based on driving use case, family size, annual km, and budget.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            useCase: { type: "string", description: "Primary use case: 'City Commuting', 'Off-road / Mountain', 'Family Trips', 'Eco / EV Driving'." },
+            familySize: { type: "number", description: "Number of family members (e.g., 4 or 5)." },
+            annualKm: { type: "number", description: "Annual driving in km (e.g., 15000)." },
+            maxBudget: { type: "number", description: "Max budget in INR (e.g., 1800000)." }
+          },
+          required: ["useCase", "maxBudget"]
         }
       }
     ]
@@ -455,7 +441,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const sortBy = String(args.sortBy || "price");
     const sortOrder = String(args.sortOrder || "asc");
 
-    const allCars = await fetchNormalizedCars(ALL_BRANDS);
+    let allCars = await fetchNormalizedCars(ALL_BRANDS);
+    if (allCars.length === 0) {
+      allCars = getFallbackCatalog();
+    }
 
     let filteredCars = allCars;
 
@@ -651,6 +640,92 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             totalSavingsInYears: `${years} Years Savings: ${formatPrice(totalSavingsOverYears)}`,
             evPricePremium: formatPrice(initialPricePremium),
             paybackPeriod: breakEvenMonths <= 0 ? "Instant (EV is cheaper upfront)" : `${breakEvenMonths} Months (~${(breakEvenMonths / 12).toFixed(1)} Years)`
+          }, null, 2)
+        }
+      ]
+    };
+  }
+
+  if (name === "book_test_drive") {
+    const { carModel, customerName, customerPhone, pincode, preferredDate, timeSlot } = args;
+    if (!carModel || !customerName || !customerPhone || !pincode || !preferredDate) {
+      throw new Error("Missing required parameters for booking test drive.");
+    }
+
+    const randomDigits = Math.floor(1000 + Math.random() * 9000);
+    const bookingId = `TD-2026-${randomDigits}`;
+    const slot = timeSlot || "Morning (10:00 AM - 01:00 PM)";
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            status: "CONFIRMED",
+            bookingId: bookingId,
+            vehicleRequested: carModel,
+            customerName: customerName,
+            customerPhone: customerPhone,
+            appointmentSlot: `${preferredDate} | ${slot}`,
+            assignedDealership: `Authorized Brand Dealership (Pincode: ${pincode})`,
+            dealershipAddress: `Main Auto Zone, Sector 4, Pincode ${pincode}`,
+            testDriveChecklist: [
+              "Original Driving License mandatory",
+              "Doorstep delivery or dealer showroom visit available",
+              "Dedicated sales specialist assigned"
+            ]
+          }, null, 2)
+        }
+      ]
+    };
+  }
+
+  if (name === "calculate_match_score") {
+    const useCase = String(args.useCase || "City Commuting").toLowerCase();
+    const maxBudget = Number(args.maxBudget || 2000000);
+
+    const candidateBrands = ["Hyundai", "Tata", "Mahindra", "Kia", "Toyota"];
+    let allCars = await fetchNormalizedCars(candidateBrands);
+    if (allCars.length === 0) {
+      allCars = getFallbackCatalog();
+    }
+
+    const scoredCars = allCars.map(car => {
+      let score = 70;
+
+      if (car.price <= maxBudget) score += 15;
+      else score -= 15;
+
+      const mLower = car.model.toLowerCase();
+
+      if (useCase.includes("off-road") || useCase.includes("mountain")) {
+        if (mLower.includes("thar") || mLower.includes("safari") || mLower.includes("harrier") || mLower.includes("fortuner") || mLower.includes("scorpio") || car.company === "Mahindra") score += 20;
+      } else if (useCase.includes("family")) {
+        if (mLower.includes("innova") || mLower.includes("carens") || mLower.includes("creta") || mLower.includes("seltos") || mLower.includes("safari")) score += 20;
+      } else if (useCase.includes("eco") || useCase.includes("ev")) {
+        if (car.fuelType === "Electric" || car.fuelType === "Hybrid") score += 25;
+      } else if (useCase.includes("city")) {
+        if (car.horsepower < 130 || mLower.includes("swift") || mLower.includes("exter") || mLower.includes("nexon")) score += 20;
+      }
+
+      score = Math.min(99, Math.max(58, score));
+
+      return {
+        ...car,
+        matchScorePercent: `${score}% Match`,
+        scoreValue: score
+      };
+    });
+
+    scoredCars.sort((a, b) => b.scoreValue - a.scoreValue);
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            primaryUseCase: args.useCase,
+            scoredVehicles: scoredCars.slice(0, 5)
           }, null, 2)
         }
       ]
