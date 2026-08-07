@@ -57,7 +57,7 @@ with st.sidebar:
     st.image("https://www.auto-data.net/img/no.jpg", width=120)
     st.title("Autonomous Tools")
 
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🎯 Match", "🏙️ On-Road", "💵 Trade-In", "🛡️ Safety", "📄 Dossier", "❤️ Wishlist"])
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(["🎯 Match", "🏙️ On-Road", "💵 Trade-In", "🛡️ Safety", "📄 Dossier", "🤝 Negotiate", "🛣️ Trip Cost", "🏢 Fleet"])
 
     with tab1:
         use_case = st.selectbox(
@@ -169,29 +169,82 @@ with st.sidebar:
                 if res.status_code == 200:
                     data = res.json()
                     st.markdown(data['dossierMarkdown'])
-                    st.download_button(
-                        label="📥 Download Buyer Dossier Report (.md)",
-                        data=data['dossierMarkdown'],
-                        file_name=f"buying_dossier_{dossier_car.replace(' ', '_')}.md",
-                        mime="text/markdown"
-                    )
                 else:
                     st.error("Failed to generate dossier.")
             except Exception as e:
                 st.error(f"Error: {e}")
 
     with tab6:
-        st.subheader("❤️ Saved Vehicle Wishlist")
-        if st.button("Refresh Wishlist"):
+        neg_car = st.text_input("Target Model", value="Hyundai Creta")
+        neg_price = st.number_input("Dealer Quoted Price (INR)", value=1500000, step=25000)
+        comp_model = st.text_input("Competing Model Quote", value="Tata Nexon")
+
+        if st.button("Generate Negotiation Counter-Offer"):
             try:
-                res = requests.get(f"{BACKEND_URL}/api/wishlist")
+                res = requests.post(f"{BACKEND_URL}/api/negotiate", json={
+                    "carModel": neg_car,
+                    "quotedPrice": neg_price,
+                    "competingModel": comp_model
+                })
                 if res.status_code == 200:
-                    wdata = res.json()
-                    st.write(f"**Total Saved Models**: {wdata['wishlistCount']}")
-                    for model in wdata.get("savedModels", []):
-                        st.markdown(f"- ❤️ **{model}**")
+                    data = res.json()
+                    st.success(f"Target Counter-Offer: {data['targetCounterOffer']} (Save {data['recommendedSavings']})")
+                    st.write("**Strategy Points**:")
+                    for pt in data.get("negotiationStrategyPoints", []):
+                        st.markdown(f"- {pt}")
+                    st.warning(f"Walkaway Limit: {data['walkawayLimit']}")
                 else:
-                    st.error("Failed to fetch wishlist.")
+                    st.error("Failed to generate negotiation strategy.")
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+    with tab7:
+        trip_orig = st.text_input("Origin City", value="Bangalore")
+        trip_dest = st.text_input("Destination City", value="Goa")
+        trip_km = st.number_input("Trip Distance (km)", value=560, step=20)
+        trip_fuel = st.selectbox("Vehicle Drivetrain", ["Petrol", "Diesel", "Electric", "Hybrid"])
+
+        if st.button("Plan Trip Fuel & Toll Cost"):
+            try:
+                res = requests.get(f"{BACKEND_URL}/api/plan-trip", params={
+                    "originCity": trip_orig,
+                    "destinationCity": trip_dest,
+                    "distanceKm": trip_km,
+                    "fuelType": trip_fuel
+                })
+                if res.status_code == 200:
+                    data = res.json()
+                    st.markdown(f"### 🛣️ {data['route']} ({data['totalDistance']})")
+                    st.write(f"**Travel Time**: {data['estimatedTravelTime']}")
+                    st.write(f"**Fuel / Charging**: {data['estimatedFuelOrChargingCost']}")
+                    st.write(f"**Tolls**: {data['estimatedHighwayTolls']}")
+                    st.success(f"Total Trip Cost: {data['totalTripCost']}")
+                else:
+                    st.error("Failed to plan trip.")
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+    with tab8:
+        fleet_model = st.text_input("Fleet Model", value="Hyundai Creta")
+        fleet_qty = st.slider("Quantity of Vehicles", 2, 20, 5)
+        fleet_gst = st.checkbox("GST Registered Business (Input Credit 28%)", value=True)
+
+        if st.button("Calculate Corporate Fleet Savings"):
+            try:
+                res = requests.get(f"{BACKEND_URL}/api/fleet-discount", params={
+                    "carModel": fleet_model,
+                    "quantity": fleet_qty,
+                    "isGstRegistered": str(fleet_gst).lower()
+                })
+                if res.status_code == 200:
+                    data = res.json()
+                    st.success(f"Bulk Corporate Discount: {data['bulkCorporateDiscount']}")
+                    if fleet_gst:
+                        st.info(f"GST Tax Credit Savings: {data['gstInputTaxCreditSavings']}")
+                    st.markdown(f"**Net Effective Cost**: {data['netCorporateEffectivePrice']}")
+                    st.caption(f"Savings per vehicle: {data['savingsPerVehicle']}")
+                else:
+                    st.error("Failed to calculate fleet discount.")
             except Exception as e:
                 st.error(f"Error: {e}")
 
@@ -231,18 +284,18 @@ st.subheader("💬 Ask AI Vehicle Advisor")
 
 col1, col2, col3 = st.columns(3)
 with col1:
-    if st.button("🛡️ Safety rating of Tata Nexon"):
-        st.session_state["user_prompt"] = "What is the NCAP safety star rating and airbag count of Tata Nexon?"
+    if st.button("🤝 Negotiate Creta Price"):
+        st.session_state["user_prompt"] = "Help me negotiate dealer price for Hyundai Creta quoted at 15 Lakhs"
 with col2:
-    if st.button("📄 Generate Buying Dossier for Creta"):
-        st.session_state["user_prompt"] = "Export official vehicle buying dossier for Hyundai Creta in Bangalore"
+    if st.button("🛣️ Trip Cost: Bangalore to Goa"):
+        st.session_state["user_prompt"] = "Calculate trip fuel and toll cost from Bangalore to Goa (560 km)"
 with col3:
-    if st.button("📍 Check Creta stock in 560001"):
-        st.session_state["user_prompt"] = "Check dealer inventory and waiting period for Creta in pincode 560001"
+    if st.button("🏢 Fleet Discount for 5 cars"):
+        st.session_state["user_prompt"] = "Calculate corporate bulk fleet discount for 5 Hyundai Creta units"
 
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "Hello! I am your AI Vehicle Advisor. Ask me anything about vehicle recommendations, safety NCAP ratings, buying dossiers, city on-road prices, or trade-in valuations!"}
+        {"role": "assistant", "content": "Hello! I am your AI Vehicle Advisor. Ask me anything about vehicle recommendations, dealer price negotiations, long-distance trip costs, fleet discounts, or safety ratings!"}
     ]
 
 for message in st.session_state.messages:

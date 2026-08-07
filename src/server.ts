@@ -8,7 +8,7 @@ import fs from "fs";
 export const server = new Server(
   {
     name: "car-aggregator",
-    version: "1.5.0",
+    version: "1.6.0",
   },
   {
     capabilities: {
@@ -492,6 +492,46 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             carModel: { type: "string" }
           },
           required: ["action"]
+        }
+      },
+      {
+        name: "negotiate_dealer_price",
+        description: "Generates customized price counter-offers, corporate/cash discount targets, and dealer negotiation strategies.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            carModel: { type: "string", description: "Target vehicle model." },
+            quotedPrice: { type: "number", description: "Initial dealer quote in INR." },
+            competingModel: { type: "string", description: "Competing brand model quote (e.g. 'Tata Nexon')." }
+          },
+          required: ["carModel", "quotedPrice"]
+        }
+      },
+      {
+        name: "plan_trip_cost",
+        description: "Calculates total fuel/charging costs, toll expenses, charging stops, and travel time for long-distance highway routes.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            originCity: { type: "string", description: "Origin City (e.g. 'Bangalore')." },
+            destinationCity: { type: "string", description: "Destination City (e.g. 'Goa')." },
+            distanceKm: { type: "number", description: "Distance in km (e.g. 560)." },
+            fuelType: { type: "string", description: "Vehicle fuel type: Petrol, Diesel, Electric, Hybrid." }
+          },
+          required: ["originCity", "destinationCity", "distanceKm"]
+        }
+      },
+      {
+        name: "calculate_fleet_discount",
+        description: "Computes corporate bulk purchase discounts (2-20 vehicles), GST input tax credit savings, and tax write-offs.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            carModel: { type: "string" },
+            quantity: { type: "number", description: "Number of vehicles (e.g. 5)." },
+            isGstRegistered: { type: "boolean", description: "Is buyer a GST-registered business?" }
+          },
+          required: ["carModel", "quantity"]
         }
       }
     ]
@@ -1015,7 +1055,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 - **Specialist Line**: 1800-CAR-ADVISOR
 
 ---
-*Generated autonomously by MCP Car Aggregator Protocol v1.5*
+*Generated autonomously by MCP Car Aggregator Protocol v1.6*
 `;
 
     return {
@@ -1056,6 +1096,105 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             actionPerformed: action,
             wishlistCount: currentList.length,
             savedModels: currentList
+          }, null, 2)
+        }
+      ]
+    };
+  }
+
+  if (name === "negotiate_dealer_price") {
+    const carModel = String(args.carModel || "Hyundai Creta");
+    const quotedPrice = Number(args.quotedPrice || 1500000);
+    const competingModel = String(args.competingModel || "Tata Nexon");
+
+    const targetDiscount = Math.round(quotedPrice * 0.045); // ~4.5% discount target
+    const counterOfferPrice = quotedPrice - targetDiscount;
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            vehicle: carModel,
+            dealerInitialQuote: formatPrice(quotedPrice),
+            targetCounterOffer: formatPrice(counterOfferPrice),
+            recommendedSavings: formatPrice(targetDiscount),
+            negotiationStrategyPoints: [
+              `Leverage competing quote from ${competingModel} to demand ₹${targetDiscount.toLocaleString("en-IN")} off`,
+              "Request free 7D floor mats, body cover, and ceramic coating package (valued at ₹18,000)",
+              "Opt out of dealer insurance to save ₹12,000 via online self-policy",
+              "Demand corporate / exchange bonus waiver before month-end target cutoff"
+            ],
+            walkawayLimit: formatPrice(quotedPrice - Math.round(targetDiscount * 0.7))
+          }, null, 2)
+        }
+      ]
+    };
+  }
+
+  if (name === "plan_trip_cost") {
+    const origin = String(args.originCity || "Bangalore");
+    const dest = String(args.destinationCity || "Goa");
+    const km = Number(args.distanceKm || 560);
+    const fuel = String(args.fuelType || "Petrol");
+
+    let costPerKm = 6.8;
+    let travelHours = Math.round(km / 60);
+
+    if (fuel === "Electric") {
+      costPerKm = 1.3;
+      travelHours += 2; // Charging stops
+    } else if (fuel === "Diesel") {
+      costPerKm = 5.4;
+    }
+
+    const totalFuelCost = Math.round(km * costPerKm);
+    const tollEst = Math.round((km / 100) * 160); // ~₹160 tolls per 100 km
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            route: `${origin} ➔ ${dest}`,
+            totalDistance: `${km} km`,
+            fuelType: fuel,
+            estimatedTravelTime: `~${travelHours} Hours`,
+            estimatedFuelOrChargingCost: formatPrice(totalFuelCost),
+            estimatedHighwayTolls: formatPrice(tollEst),
+            totalTripCost: formatPrice(totalFuelCost + tollEst),
+            chargingStopsRequired: fuel === "Electric" ? "2 Charging Stops (~45 mins total)" : "None (Single Tank)"
+          }, null, 2)
+        }
+      ]
+    };
+  }
+
+  if (name === "calculate_fleet_discount") {
+    const carModel = String(args.carModel || "Hyundai Creta");
+    const qty = Number(args.quantity || 5);
+    const isGst = Boolean(args.isGstRegistered !== false);
+
+    const unitPrice = estimatePrice(carModel, 115);
+    const totalExShowroom = unitPrice * qty;
+
+    const bulkDiscountPercent = qty >= 10 ? 12 : qty >= 5 ? 8 : 4;
+    const bulkDiscountAmt = Math.round((totalExShowroom * bulkDiscountPercent) / 100);
+
+    const gstSavings = isGst ? Math.round((totalExShowroom - bulkDiscountAmt) * 0.28) : 0;
+    const netCorporateCost = totalExShowroom - bulkDiscountAmt - gstSavings;
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            fleetOrder: `${qty} Units of ${carModel}`,
+            grossPrice: formatPrice(totalExShowroom),
+            bulkCorporateDiscount: `${formatPrice(bulkDiscountAmt)} (${bulkDiscountPercent}%)`,
+            gstInputTaxCreditSavings: isGst ? `${formatPrice(gstSavings)} (28% Input Tax Credit)` : "₹0 (Non-GST Buyer)",
+            netCorporateEffectivePrice: formatPrice(netCorporateCost),
+            savingsPerVehicle: formatPrice(Math.round((totalExShowroom - netCorporateCost) / qty))
           }, null, 2)
         }
       ]

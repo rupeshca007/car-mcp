@@ -292,7 +292,56 @@ app.post('/api/wishlist', async (req, res) => {
   }
 });
 
-// 13. Embedded AI Chat Endpoint for Web Dashboard Drawer
+// 13. Endpoint for negotiate_dealer_price
+app.post('/api/negotiate', async (req, res) => {
+  const { carModel, quotedPrice, competingModel } = req.body;
+
+  try {
+    const data = await invokeMcpTool('negotiate_dealer_price', {
+      carModel: String(carModel || 'Hyundai Creta'),
+      quotedPrice: Number(quotedPrice || 1500000),
+      competingModel: String(competingModel || 'Tata Nexon')
+    });
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 14. Endpoint for plan_trip_cost
+app.get('/api/plan-trip', async (req, res) => {
+  const { originCity, destinationCity, distanceKm, fuelType } = req.query;
+
+  try {
+    const data = await invokeMcpTool('plan_trip_cost', {
+      originCity: String(originCity || 'Bangalore'),
+      destinationCity: String(destinationCity || 'Goa'),
+      distanceKm: Number(distanceKm || 560),
+      fuelType: String(fuelType || 'Petrol')
+    });
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 15. Endpoint for calculate_fleet_discount
+app.get('/api/fleet-discount', async (req, res) => {
+  const { carModel, quantity, isGstRegistered } = req.query;
+
+  try {
+    const data = await invokeMcpTool('calculate_fleet_discount', {
+      carModel: String(carModel || 'Hyundai Creta'),
+      quantity: Number(quantity || 5),
+      isGstRegistered: isGstRegistered === 'false' ? false : true
+    });
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 16. Embedded AI Chat Endpoint for Web Dashboard Drawer
 app.post('/api/ai-chat', async (req, res) => {
   const { prompt } = req.body;
   if (!prompt || typeof prompt !== 'string') {
@@ -311,9 +360,22 @@ app.post('/api/ai-chat', async (req, res) => {
         parameters: {
           type: "OBJECT",
           properties: {
-            horsepower: { type: "INTEGER", description: "Target horsepower (e.g. 180)." },
-            budget: { type: "INTEGER", description: "Maximum budget in INR (e.g. 2000000)." }
+            horsepower: { type: "INTEGER" },
+            budget: { type: "INTEGER" }
           }
+        }
+      };
+
+      const negotiate_dealer_price_tool = {
+        name: "negotiate_dealer_price",
+        description: "Generates dealer negotiation counter-offers and discount strategies.",
+        parameters: {
+          type: "OBJECT",
+          properties: {
+            carModel: { type: "STRING" },
+            quotedPrice: { type: "INTEGER" }
+          },
+          required: ["carModel", "quotedPrice"]
         }
       };
 
@@ -324,7 +386,7 @@ app.post('/api/ai-chat', async (req, res) => {
         contents: prompt,
         config: {
           systemInstruction: system_instruction,
-          tools: [{ functionDeclarations: [compare_cars_tool as any] }],
+          tools: [{ functionDeclarations: [compare_cars_tool as any, negotiate_dealer_price_tool as any] }],
           temperature: 0.3
         }
       });
@@ -345,6 +407,16 @@ app.post('/api/ai-chat', async (req, res) => {
       }
 
       return res.json({ reply: response.text });
+    }
+
+    // Fallback if GEMINI_API_KEY is not set
+    const lowerPrompt = prompt.toLowerCase();
+    if (lowerPrompt.includes('negotiate') || lowerPrompt.includes('discount') || lowerPrompt.includes('bargain')) {
+      const nRes = await invokeMcpTool('negotiate_dealer_price', { carModel: 'Hyundai Creta', quotedPrice: 1500000, competingModel: 'Tata Nexon' });
+      return res.json({
+        reply: `### 🤝 AI Price Negotiation Counter-Offer (${nRes.vehicle})\n\n- **Dealer Initial Quote**: ${nRes.dealerInitialQuote}\n- **Recommended Counter-Offer**: **${nRes.targetCounterOffer}** (Save ${nRes.recommendedSavings})\n\n**Strategy Talking Points**:\n${nRes.negotiationStrategyPoints.map((p: string) => `- ${p}`).join('\n')}\n\n👉 **Walk-Away Limit**: ${nRes.walkawayLimit}`,
+        toolCalled: 'negotiate_dealer_price'
+      });
     }
 
     const carsRes = await invokeMcpTool('compare_cars', { budget: 2000000 });
