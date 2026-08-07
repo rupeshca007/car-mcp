@@ -1,51 +1,91 @@
 document.addEventListener('DOMContentLoaded', () => {
   const filterForm = document.getElementById('filter-form');
-  const hpInput = document.getElementById('horsepower');
+  const horsepowerInput = document.getElementById('horsepower');
   const hpVal = document.getElementById('hp-val');
   const budgetInput = document.getElementById('budget');
   const budgetVal = document.getElementById('budget-val');
-  const brandFilter = document.getElementById('brand-filter');
-  const fuelPills = document.querySelectorAll('.fuel-pill');
-  
-  // EMI sliders
+  const brandFilter = document.getElementById('brand-select');
+  const citySelect = document.getElementById('city-select');
+
+  // EMI Slider Elements
   const dpInput = document.getElementById('down-payment');
   const dpVal = document.getElementById('dp-val');
   const irInput = document.getElementById('interest-rate');
   const irVal = document.getElementById('ir-val');
-  const tenureInput = document.getElementById('tenure-years');
+  const tenureInput = document.getElementById('loan-tenure');
   const tenureVal = document.getElementById('tenure-val');
 
-  // Containers & Elements
+  // Layout Containers
   const carsGrid = document.getElementById('cars-grid');
-  const loading = document.getElementById('loading');
-  const errorBox = document.getElementById('error-box');
-  const errorText = document.getElementById('error-text');
-  const emptyState = document.getElementById('empty-state');
-  const resultCount = document.getElementById('result-count');
-
-  // Compare Bar & Modal
+  const resultsHeader = document.getElementById('results-count');
+  
+  // Selection & Compare Elements
+  const viewCompareBtn = document.getElementById('view-compare-btn');
+  const compareCountSpan = document.getElementById('compare-count');
   const compareBar = document.getElementById('compare-bar');
-  const compareCount = document.getElementById('compare-count');
-  const clearCompareBtn = document.getElementById('clear-compare-btn');
-  const openCompareModalBtn = document.getElementById('open-compare-modal-btn');
-  const compareModal = document.getElementById('compare-modal');
+  const openSpecModalBtn = document.getElementById('open-spec-modal-btn');
+  const specModal = document.getElementById('spec-modal');
+  const modalBody = document.getElementById('modal-body');
   const closeModalBtn = document.getElementById('close-modal-btn');
-  const modalMatrixContainer = document.getElementById('modal-matrix-container');
 
-  // AI Chat FAB & Drawer
-  const aiChatFab = document.getElementById('ai-chat-fab');
-  const aiChatDrawer = document.getElementById('ai-chat-drawer');
+  // Floating AI Drawer Elements
+  const aiFab = document.getElementById('ai-fab');
+  const aiDrawer = document.getElementById('ai-drawer');
   const closeDrawerBtn = document.getElementById('close-drawer-btn');
   const chatForm = document.getElementById('chat-form');
   const chatInput = document.getElementById('chat-input');
-  const chatMessages = document.getElementById('chat-messages');
-  const promptChips = document.querySelectorAll('.prompt-chip');
+  const chatHistory = document.getElementById('chat-history');
 
   let currentCarsData = [];
-  let selectedFuelType = 'ALL';
   let selectedCarsToCompare = new Set();
+  let selectedFuelType = 'ALL';
 
-  // Helper to calculate EMI
+  // Event Listeners for Filters
+  horsepowerInput.addEventListener('input', (e) => {
+    hpVal.textContent = `${e.target.value} HP`;
+  });
+
+  budgetInput.addEventListener('input', (e) => {
+    budgetVal.textContent = `₹${e.target.value} Lakh`;
+  });
+
+  // EMI slider updates
+  dpInput.addEventListener('input', (e) => {
+    dpVal.textContent = `${e.target.value}%`;
+    recalculateAllEmis();
+  });
+
+  irInput.addEventListener('input', (e) => {
+    irVal.textContent = `${e.target.value}%`;
+    recalculateAllEmis();
+  });
+
+  tenureInput.addEventListener('input', (e) => {
+    tenureVal.textContent = `${e.target.value} Years`;
+    recalculateAllEmis();
+  });
+
+  // Fuel Pills event listener
+  const fuelPills = document.querySelectorAll('.fuel-pill');
+  fuelPills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      fuelPills.forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      selectedFuelType = pill.dataset.fuel;
+      renderCars(currentCarsData);
+    });
+  });
+
+  // Brand and City dropdown listener
+  brandFilter.addEventListener('change', () => {
+    renderCars(currentCarsData);
+  });
+
+  citySelect.addEventListener('change', () => {
+    renderCars(currentCarsData);
+  });
+
+  // Calculate Monthly EMI
   function calculateMonthlyEmi(price, dpPercent, interestRate, tenureYears) {
     const downPayment = (price * dpPercent) / 100;
     const loanAmount = price - downPayment;
@@ -56,41 +96,28 @@ document.addEventListener('DOMContentLoaded', () => {
       (loanAmount * monthlyRate * Math.pow(1 + monthlyRate, totalMonths)) /
       (Math.pow(1 + monthlyRate, totalMonths) - 1)
     );
-    return emi > 0 ? `₹${emi.toLocaleString('en-IN')}/mo` : 'N/A';
+
+    return `₹${emi.toLocaleString('en-IN')}/mo`;
   }
 
-  // Update slider badge values
-  hpInput.addEventListener('input', () => hpVal.textContent = `${hpInput.value} HP`);
-  budgetInput.addEventListener('input', () => budgetVal.textContent = `₹${budgetInput.value} Lakh`);
-  dpInput.addEventListener('input', () => {
-    dpVal.textContent = `${dpInput.value}%`;
-    recalculateAllEmis();
-  });
-  irInput.addEventListener('input', () => {
-    irVal.textContent = `${irInput.value}%`;
-    recalculateAllEmis();
-  });
-  tenureInput.addEventListener('input', () => {
-    tenureVal.textContent = `${tenureInput.value} Yrs`;
-    recalculateAllEmis();
-  });
+  // Calculate City On-Road Price estimate
+  function calculateOnRoadPrice(price, fuelType, cityName) {
+    let rtoPercent = 11;
+    const cLower = cityName.toLowerCase();
+    if (fuelType === 'Electric') rtoPercent = 2;
+    else if (cLower.includes('bangalore')) rtoPercent = 14;
+    else if (cLower.includes('mumbai') || cLower.includes('pune')) rtoPercent = 12;
+    else if (cLower.includes('delhi')) rtoPercent = 9;
 
-  // Fuel Pills event listener
-  fuelPills.forEach(pill => {
-    pill.addEventListener('click', () => {
-      fuelPills.forEach(p => p.classList.remove('active'));
-      pill.classList.add('active');
-      selectedFuelType = pill.dataset.fuel;
-      renderCars(currentCarsData);
-    });
-  });
+    const rto = (price * rtoPercent) / 100;
+    const insurance = price * 0.035;
+    const reg = 2500;
+    const total = Math.round(price + rto + insurance + reg);
 
-  // Brand Filter listener
-  brandFilter.addEventListener('change', () => {
-    renderCars(currentCarsData);
-  });
+    if (total >= 10000000) return `₹${(total / 10000000).toFixed(2)} Cr On-Road`;
+    return `₹${(total / 100000).toFixed(1)} Lakh On-Road (${cityName})`;
+  }
 
-  // Recalculate EMIs on cards live
   function recalculateAllEmis() {
     const dp = Number(dpInput.value);
     const ir = Number(irInput.value);
@@ -107,10 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Fetch cars from backend
   async function fetchCars(params = {}) {
-    loading.classList.remove('hidden');
-    errorBox.classList.add('hidden');
-    emptyState.classList.add('hidden');
-    carsGrid.innerHTML = '';
+    carsGrid.innerHTML = '<div class="spinner"></div><p style="color:#94a3b8; text-align:center;">Fetching database...</p>';
 
     try {
       const queryParams = new URLSearchParams(params);
@@ -124,10 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
       currentCarsData = data.cars || [];
       renderCars(currentCarsData);
     } catch (err) {
-      errorText.textContent = err.message;
-      errorBox.classList.remove('hidden');
-    } finally {
-      loading.classList.add('hidden');
+      carsGrid.innerHTML = `<div class="error-msg">${err.message}</div>`;
     }
   }
 
@@ -146,21 +167,21 @@ document.addEventListener('DOMContentLoaded', () => {
       filtered = filtered.filter(c => c.fuelType.toLowerCase().includes(selectedFuelType.toLowerCase()));
     }
 
-    resultCount.textContent = `Found ${filtered.length} matching models`;
+    resultsHeader.textContent = `Found ${filtered.length} matching models`;
 
     if (filtered.length === 0) {
-      emptyState.classList.remove('hidden');
+      carsGrid.innerHTML = '<p class="empty-state">No vehicles matched your filter parameters.</p>';
       return;
     }
-
-    emptyState.classList.add('hidden');
 
     const dp = Number(dpInput.value);
     const ir = Number(irInput.value);
     const tenure = Number(tenureInput.value);
+    const cityName = citySelect.value;
 
     filtered.forEach(car => {
       const emiText = calculateMonthlyEmi(car.price, dp, ir, tenure);
+      const onRoadText = calculateOnRoadPrice(car.price, car.fuelType, cityName);
       const isChecked = selectedCarsToCompare.has(car.model);
 
       const card = document.createElement('div');
@@ -177,14 +198,23 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="card-body">
           <h3 class="car-model-title">${car.company} ${car.model}</h3>
           <div class="car-price-row">
-            <span class="car-price">${car.formattedPrice}</span>
+            <span class="car-price">${car.formattedPrice} <small style="font-size:0.75rem; color:#94a3b8;">Ex-Showroom</small></span>
             <span class="card-emi-badge">${emiText}</span>
           </div>
-          <div class="specs-grid">
-            <div class="spec-item"><i class="bx bx-tachometer"></i> <span>Power: <span class="val">${car.horsepower} HP</span></span></div>
-            <div class="spec-item"><i class="bx bx-gas-pump"></i> <span>Mileage: <span class="val">${car.mileage}</span></span></div>
+          <p class="on-road-tag"><i class="bx bx-map-pin"></i> ${onRoadText}</p>
+
+          <div class="card-specs-grid">
+            <div class="spec-item">
+              <i class="bx bx-tachometer"></i>
+              <span>${car.horsepower} HP</span>
+            </div>
+            <div class="spec-item">
+              <i class="bx bx-gas-pump"></i>
+              <span>${car.mileage || '16.5 km/l'}</span>
+            </div>
           </div>
-          <div class="card-footer">
+
+          <div class="card-actions">
             <label class="compare-checkbox-label">
               <input type="checkbox" class="compare-checkbox" data-model="${car.model}" ${isChecked ? 'checked' : ''}>
               <span>+ Compare</span>
@@ -196,9 +226,12 @@ document.addEventListener('DOMContentLoaded', () => {
       carsGrid.appendChild(card);
     });
 
-    // Attach checkbox listeners
-    document.querySelectorAll('.compare-checkbox').forEach(chk => {
-      chk.addEventListener('change', (e) => {
+    attachCompareCheckboxListeners();
+  }
+
+  function attachCompareCheckboxListeners() {
+    document.querySelectorAll('.compare-checkbox').forEach(cb => {
+      cb.addEventListener('change', (e) => {
         const model = e.target.dataset.model;
         if (e.target.checked) {
           if (selectedCarsToCompare.size >= 3) {
@@ -210,120 +243,97 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
           selectedCarsToCompare.delete(model);
         }
-        updateCompareBar();
+        updateCompareState();
       });
     });
   }
 
-  // Update Floating Compare Bar
-  function updateCompareBar() {
-    compareCount.textContent = selectedCarsToCompare.size;
-    if (selectedCarsToCompare.size > 0) {
+  function updateCompareState() {
+    const count = selectedCarsToCompare.size;
+    compareCountSpan.textContent = count;
+
+    if (count > 0) {
+      viewCompareBtn.disabled = false;
       compareBar.classList.remove('hidden');
     } else {
+      viewCompareBtn.disabled = true;
       compareBar.classList.add('hidden');
     }
   }
 
-  clearCompareBtn.addEventListener('click', () => {
-    selectedCarsToCompare.clear();
-    updateCompareBar();
-    document.querySelectorAll('.compare-checkbox').forEach(c => c.checked = false);
-  });
+  // Spec Modal Handlers
+  viewCompareBtn.addEventListener('click', openSpecMatrixModal);
+  openSpecModalBtn.addEventListener('click', openSpecMatrixModal);
+  closeModalBtn.addEventListener('click', () => specModal.classList.add('hidden'));
 
-  // Open Side-by-Side Comparison Modal
-  openCompareModalBtn.addEventListener('click', async () => {
+  async function openSpecMatrixModal() {
     if (selectedCarsToCompare.size === 0) return;
-
-    modalMatrixContainer.innerHTML = '<div class="spinner"></div><p style="text-align:center">Loading spec matrix...</p>';
-    compareModal.classList.remove('hidden');
+    specModal.classList.remove('hidden');
+    modalBody.innerHTML = '<div class="spinner"></div><p style="text-align:center; color:#94a3b8;">Generating Head-to-Head Spec Matrix...</p>';
 
     try {
-      const models = Array.from(selectedCarsToCompare).join(',');
-      const res = await fetch(`/api/compare-specs?models=${encodeURIComponent(models)}`);
+      const modelsList = Array.from(selectedCarsToCompare).join(',');
+      const res = await fetch(`/api/compare-specs?models=${encodeURIComponent(modelsList)}`);
       const data = await res.json();
+      
+      const specs = data.specMatrix || [];
 
-      renderComparisonMatrix(data.specMatrix || []);
+      let tableHtml = `
+        <table class="spec-matrix-table">
+          <thead>
+            <tr>
+              <th>Specification</th>
+              ${specs.map(s => `<th>${s.company} ${s.model}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Ex-Showroom Price</strong></td>
+              ${specs.map(s => `<td class="price-cell">${s.formattedPrice}</td>`).join('')}
+            </tr>
+            <tr>
+              <td><strong>Horsepower</strong></td>
+              ${specs.map(s => `<td>${s.horsepower} HP</td>`).join('')}
+            </tr>
+            <tr>
+              <td><strong>Mileage / Efficiency</strong></td>
+              ${specs.map(s => `<td>${s.mileage}</td>`).join('')}
+            </tr>
+            <tr>
+              <td><strong>Power-to-Weight</strong></td>
+              ${specs.map(s => `<td><span class="matrix-badge">${s.powerToWeightRatio}</span></td>`).join('')}
+            </tr>
+            <tr>
+              <td><strong>Fuel Type</strong></td>
+              ${specs.map(s => `<td>${s.fuelType}</td>`).join('')}
+            </tr>
+            <tr>
+              <td><strong>Est. Annual Maintenance</strong></td>
+              ${specs.map(s => `<td>${s.estimatedAnnualService}</td>`).join('')}
+            </tr>
+          </tbody>
+        </table>
+      `;
+
+      modalBody.innerHTML = tableHtml;
     } catch (err) {
-      modalMatrixContainer.innerHTML = `<p style="color:red">Failed to load comparison matrix: ${err.message}</p>`;
+      modalBody.innerHTML = `<div class="error-msg">Failed to load spec comparison matrix: ${err.message}</div>`;
     }
-  });
-
-  closeModalBtn.addEventListener('click', () => compareModal.classList.add('hidden'));
-
-  // Render Comparison Matrix with Green Badges
-  function renderComparisonMatrix(cars) {
-    if (cars.length === 0) {
-      modalMatrixContainer.innerHTML = '<p>No spec details available for selected cars.</p>';
-      return;
-    }
-
-    const minPrice = Math.min(...cars.map(c => c.price));
-    const maxHp = Math.max(...cars.map(c => c.horsepower));
-
-    let html = `
-      <table class="matrix-table">
-        <thead>
-          <tr>
-            <th>Specification</th>
-            ${cars.map(c => `<th>${c.company} ${c.model}</th>`).join('')}
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><strong>Showroom Price</strong></td>
-            ${cars.map(c => `<td><strong>${c.formattedPrice}</strong> ${c.price === minPrice ? '<span class="best-badge">Best Price</span>' : ''}</td>`).join('')}
-          </tr>
-          <tr>
-            <td><strong>Horsepower</strong></td>
-            ${cars.map(c => `<td>${c.horsepower} HP ${c.horsepower === maxHp ? '<span class="best-badge">Highest HP</span>' : ''}</td>`).join('')}
-          </tr>
-          <tr>
-            <td><strong>Mileage</strong></td>
-            ${cars.map(c => `<td>${c.mileage}</td>`).join('')}
-          </tr>
-          <tr>
-            <td><strong>Fuel Type</strong></td>
-            ${cars.map(c => `<td>${c.fuelType}</td>`).join('')}
-          </tr>
-          <tr>
-            <td><strong>Power-to-Weight</strong></td>
-            ${cars.map(c => `<td>${c.powerToWeightRatio || 'N/A'}</td>`).join('')}
-          </tr>
-          <tr>
-            <td><strong>Est. Annual Service</strong></td>
-            ${cars.map(c => `<td>${c.estimatedAnnualService || 'N/A'}</td>`).join('')}
-          </tr>
-        </tbody>
-      </table>
-    `;
-
-    modalMatrixContainer.innerHTML = html;
   }
 
-  // AI Chat FAB & Drawer Handlers
-  aiChatFab.addEventListener('click', () => aiChatDrawer.classList.toggle('hidden'));
-  closeDrawerBtn.addEventListener('click', () => aiChatDrawer.classList.add('hidden'));
+  // Floating AI Chat Assistant Drawer
+  aiFab.addEventListener('click', () => aiDrawer.classList.toggle('hidden'));
+  closeDrawerBtn.addEventListener('click', () => aiDrawer.classList.add('hidden'));
 
-  promptChips.forEach(chip => {
-    chip.addEventListener('click', () => {
-      chatInput.value = chip.dataset.prompt;
-      sendChatMessage(chip.dataset.prompt);
-    });
-  });
-
-  chatForm.addEventListener('submit', (e) => {
+  chatForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const prompt = chatInput.value.trim();
     if (!prompt) return;
-    sendChatMessage(prompt);
-  });
 
-  async function sendChatMessage(prompt) {
-    appendMessage('user', prompt);
+    appendChatMessage('user', prompt);
     chatInput.value = '';
 
-    const loadingMsg = appendMessage('bot', 'AI Thinking...');
+    const thinkingElem = appendChatMessage('bot', 'Thinking & executing MCP tool calls...');
 
     try {
       const res = await fetch('/api/ai-chat', {
@@ -332,40 +342,33 @@ document.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({ prompt })
       });
       const data = await res.json();
-      loadingMsg.remove();
-      appendMessage('bot', data.reply || 'No response returned');
+      thinkingElem.innerHTML = data.reply.replace(/\n/g, '<br>');
     } catch (err) {
-      loadingMsg.remove();
-      appendMessage('bot', `Error: ${err.message}`);
+      thinkingElem.textContent = `Error: ${err.message}`;
     }
+  });
+
+  function appendChatMessage(role, text) {
+    const msg = document.createElement('div');
+    msg.className = `chat-message ${role}`;
+    msg.innerHTML = `<p>${text.replace(/\n/g, '<br>')}</p>`;
+    chatHistory.appendChild(msg);
+    chatHistory.scrollTop = chatHistory.scrollHeight;
+    return msg.querySelector('p');
   }
 
-  function appendMessage(role, text) {
-    const msgDiv = document.createElement('div');
-    msgDiv.className = `message ${role === 'user' ? 'user-msg' : 'bot-msg'}`;
-    msgDiv.innerHTML = `<i class="bx ${role === 'user' ? 'bxs-user' : 'bxs-bot'}"></i> <div>${text.replace(/\n/g, '<br>')}</div>`;
-    chatMessages.appendChild(msgDiv);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-    return msgDiv;
-  }
-
-  // Initial Form Submit & Load
+  // Form Submit
   filterForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    const sortOrder = document.querySelector('input[name="sortOrder"]:checked').value;
-    fetchCars({
-      horsepower: hpInput.value,
+    const params = {
+      horsepower: horsepowerInput.value,
       budget: Number(budgetInput.value) * 100000,
       sortBy: document.getElementById('sortBy').value,
-      sortOrder: sortOrder
-    });
+      sortOrder: document.querySelector('input[name="sortOrder"]:checked').value
+    };
+    fetchCars(params);
   });
 
   // Initial Load
-  fetchCars({
-    horsepower: hpInput.value,
-    budget: Number(budgetInput.value) * 100000,
-    sortBy: 'price',
-    sortOrder: 'asc'
-  });
+  fetchCars({ horsepower: 150, budget: 2000000, sortBy: 'price', sortOrder: 'asc' });
 });

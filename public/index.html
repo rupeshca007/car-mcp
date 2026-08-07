@@ -3,47 +3,57 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Car Aggregator MCP Dashboard</title>
-  <!-- Google Fonts -->
+  <title>MCP Car Aggregator & Vehicle Advisor</title>
+  
+  <!-- Google Fonts & Boxicons -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <!-- Boxicons -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+
   <link rel="stylesheet" href="index.css">
 </head>
 <body>
 
-  <!-- Background decorative glows -->
-  <div class="glow glow-1"></div>
-  <div class="glow glow-2"></div>
-
-  <div class="app-container">
-    
-    <!-- Sidebar / Filters Panel -->
-    <aside class="sidebar">
-      <div class="brand">
-        <i class="bx bxs-car-mechanic logo-icon"></i>
-        <h1>Car Aggregator <span>MCP</span></h1>
+  <!-- Header / Navigation Bar -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-logo">
+        <i class="bx bxs-car-mechanic"></i>
+        <span>Car<strong>MCP</strong> Aggregator</span>
       </div>
-      
-      <p class="sidebar-tagline">Universal AI Middleman Client</p>
+      <div class="header-badge">
+        <span class="pulse-dot"></span>
+        <span>10 Brands Live | MCP Protocol v1.3</span>
+      </div>
+    </div>
+  </header>
 
-      <form id="filter-form" class="filters-container">
-        
-        <!-- Brand Selection Filter -->
+  <!-- Main Application Container -->
+  <div class="main-layout">
+    
+    <!-- Sidebar Controls -->
+    <aside class="sidebar-panel">
+      <div class="sidebar-header">
+        <i class="bx bx-slider-alt"></i>
+        <h2>Vehicle Finder & Analytics</h2>
+      </div>
+
+      <form id="filter-form">
+
+        <!-- Brand Filter Dropdown -->
         <div class="filter-group">
-          <label for="brand-filter">Filter by Manufacturer</label>
+          <label for="brand-select">Manufacturer Brand</label>
           <div class="select-wrapper">
-            <select id="brand-filter">
-              <option value="ALL">All 10 Brands</option>
+            <select id="brand-select">
+              <option value="ALL">All Brands (Aggregate 10 Brands)</option>
               <option value="Hyundai">Hyundai</option>
               <option value="Tata">Tata Motors</option>
               <option value="Mahindra">Mahindra</option>
               <option value="Kia">Kia</option>
-              <option value="Toyota">Toyota</option>
+              <option value="Suzuki">Maruti Suzuki</option>
               <option value="MG">MG Motors</option>
-              <option value="Suzuki">Suzuki</option>
+              <option value="Toyota">Toyota</option>
               <option value="BMW">BMW</option>
               <option value="Audi">Audi</option>
               <option value="Mercedes">Mercedes-Benz</option>
@@ -61,6 +71,23 @@
             <button type="button" class="fuel-pill" data-fuel="Diesel">Diesel</button>
             <button type="button" class="fuel-pill" data-fuel="Electric">Electric (EV)</button>
             <button type="button" class="fuel-pill" data-fuel="Hybrid">Hybrid</button>
+          </div>
+        </div>
+
+        <!-- Target City for On-Road Price -->
+        <div class="filter-group">
+          <label for="city-select">Select City for On-Road Pricing</label>
+          <div class="select-wrapper">
+            <select id="city-select">
+              <option value="Bangalore">Bangalore (Karnataka RTO 14%)</option>
+              <option value="Delhi">Delhi (RTO Tax 8-10%)</option>
+              <option value="Mumbai">Mumbai (MH RTO Tax 11-13%)</option>
+              <option value="Hyderabad">Hyderabad (Telangana 12%)</option>
+              <option value="Chennai">Chennai (Tamil Nadu 13%)</option>
+              <option value="Kolkata">Kolkata (West Bengal 10%)</option>
+              <option value="Pune">Pune (MH RTO Tax 11%)</option>
+            </select>
+            <i class="bx bx-chevron-down select-arrow"></i>
           </div>
         </div>
 
@@ -118,158 +145,111 @@
 
         <!-- Interactive EMI Calculator Controls -->
         <div class="emi-calculator-panel">
-          <div class="panel-header">
+          <div class="panel-title">
             <i class="bx bx-calculator"></i>
-            <h3>Live Loan EMI Calculator</h3>
+            <span>Live EMI Calculator</span>
           </div>
-          
-          <div class="filter-group sm">
-            <label for="down-payment">
-              <span>Down Payment (%)</span>
-              <span id="dp-val" class="badge badge-accent">20%</span>
-            </label>
+
+          <div class="filter-group compact">
+            <label for="down-payment">Down Payment: <span id="dp-val">20%</span></label>
             <input type="range" id="down-payment" min="10" max="50" value="20" step="5">
           </div>
 
-          <div class="filter-group sm">
-            <label for="interest-rate">
-              <span>Interest Rate (% p.a.)</span>
-              <span id="ir-val" class="badge badge-accent">8.5%</span>
-            </label>
-            <input type="range" id="interest-rate" min="7" max="15" value="8.5" step="0.5">
+          <div class="filter-group compact">
+            <label for="interest-rate">Interest Rate: <span id="ir-val">8.5%</span></label>
+            <input type="range" id="interest-rate" min="6.0" max="14.0" value="8.5" step="0.25">
           </div>
 
-          <div class="filter-group sm">
-            <label for="tenure-years">
-              <span>Tenure (Years)</span>
-              <span id="tenure-val" class="badge badge-accent">5 Yrs</span>
-            </label>
-            <input type="range" id="tenure-years" min="1" max="7" value="5" step="1">
+          <div class="filter-group compact">
+            <label for="loan-tenure">Tenure: <span id="tenure-val">5 Years</span></label>
+            <input type="range" id="loan-tenure" min="1" max="7" value="5" step="1">
           </div>
         </div>
 
-        <button type="submit" id="search-btn">
-          <i class="bx bx-search-alt"></i> Run Aggregator Query
+        <button type="submit" class="submit-btn">
+          <i class="bx bx-search"></i>
+          <span>Apply Filters</span>
         </button>
-      </form>
 
-      <div class="sidebar-footer">
-        <div class="status-indicator">
-          <span class="status-dot green"></span>
-          <span>10 Brands Live Connected</span>
-        </div>
-      </div>
+      </form>
     </aside>
 
-    <!-- Main Results Area -->
-    <main class="main-content">
-      <header class="content-header">
-        <div class="header-title">
-          <h2>Vehicle Comparisons</h2>
-          <p id="result-count">Found 0 matching models</p>
+    <!-- Main Content Area -->
+    <main class="content-panel">
+      
+      <!-- Top Action Bar & Results Count -->
+      <div class="content-header">
+        <div class="results-info">
+          <h1 id="results-count">Showing Vehicles</h1>
+          <p class="subtitle">Aggregated via Model Context Protocol across 10 brand catalogs</p>
         </div>
-        <div class="header-api-info">
-          <span class="api-pill"><i class="bx bx-network-chart"></i> MCP Stdio Protocol</span>
-          <span class="api-pill"><i class="bx bx-cabinet"></i> 10 Brand APIs</span>
-        </div>
-      </header>
-
-      <!-- Floating Bottom Compare Action Bar -->
-      <div id="compare-bar" class="compare-bar hidden">
-        <div class="compare-info">
-          <i class="bx bx-git-compare"></i>
-          <span><strong id="compare-count">0</strong> cars selected for spec comparison</span>
-        </div>
-        <div class="compare-actions">
-          <button type="button" id="clear-compare-btn" class="btn-secondary-sm">Clear</button>
-          <button type="button" id="open-compare-modal-btn" class="btn-primary-sm">
-            <i class="bx bx-transfer-alt"></i> Compare Now
+        <div class="action-buttons">
+          <button id="view-compare-btn" class="compare-trigger-btn" disabled>
+            <i class="bx bx-git-compare"></i>
+            <span>Compare (<span id="compare-count">0</span>/3)</span>
           </button>
         </div>
       </div>
 
-      <!-- Results Grid -->
-      <section class="results-wrapper">
-        <div id="loading" class="loading-container hidden">
+      <!-- Live Compare Action Pill Banner -->
+      <div id="compare-bar" class="compare-banner hidden">
+        <div class="banner-info">
+          <i class="bx bx-check-circle"></i>
+          <span id="compare-banner-text">Select up to 3 cars to run side-by-side spec matrix</span>
+        </div>
+        <button id="open-spec-modal-btn" class="banner-action-btn">Open Spec Matrix</button>
+      </div>
+
+      <!-- Car Cards Grid -->
+      <div id="cars-grid" class="cars-grid">
+        <div class="skeleton-loader">
           <div class="spinner"></div>
-          <p>MCP Aggregator querying 10 brand APIs concurrently...</p>
+          <p>Fetching vehicle database...</p>
         </div>
-        
-        <div id="error-box" class="error-container hidden">
-          <i class="bx bx-error-alt"></i>
-          <h3>Query Failed</h3>
-          <p id="error-text">Failed to fetch data from MCP server.</p>
-        </div>
+      </div>
 
-        <div id="empty-state" class="empty-state-container hidden">
-          <i class="bx bx-car"></i>
-          <h3>No Cars Match Your Filters</h3>
-          <p>Try adjusting your brand, budget, or target horsepower range.</p>
-        </div>
-
-        <div id="cars-grid" class="cars-grid">
-          <!-- Dynamically populated car cards -->
-        </div>
-      </section>
     </main>
 
   </div>
 
-  <!-- Glassmorphism Side-by-Side Comparison Modal -->
-  <div id="compare-modal" class="modal-backdrop hidden">
-    <div class="modal-content glass-card">
+  <!-- Side-by-Side Spec Matrix Modal -->
+  <div id="spec-modal" class="modal-overlay hidden">
+    <div class="modal-content">
       <div class="modal-header">
-        <div class="modal-title">
-          <i class="bx bx-git-compare icon-glow"></i>
-          <h2>Head-to-Head Spec Comparison</h2>
-        </div>
-        <button type="button" id="close-modal-btn" class="close-btn"><i class="bx bx-x"></i></button>
+        <h2>🚗 Head-to-Head Spec Matrix Comparison</h2>
+        <button id="close-modal-btn" class="modal-close-btn">&times;</button>
       </div>
-      <div class="modal-body" id="modal-matrix-container">
-        <!-- Rendered comparison matrix table -->
+      <div id="modal-body" class="modal-body">
+        <div class="spinner"></div>
       </div>
     </div>
   </div>
 
-  <!-- Embedded Floating AI Assistant Chat FAB & Drawer -->
-  <button id="ai-chat-fab" class="ai-fab-btn" title="Ask AI Advisor">
-    <i class="bx bxs-bot fab-icon"></i>
-    <span>Ask AI Advisor</span>
-    <span class="fab-pulse"></span>
+  <!-- Floating AI Assistant Drawer FAB & Drawer -->
+  <button id="ai-fab" class="ai-fab-btn" title="Ask AI Vehicle Advisor">
+    <i class="bx bx-bot"></i>
+    <span>Ask AI</span>
   </button>
 
-  <div id="ai-chat-drawer" class="ai-drawer hidden">
+  <div id="ai-drawer" class="ai-drawer hidden">
     <div class="drawer-header">
       <div class="drawer-title">
-        <i class="bx bxs-bot text-gradient"></i>
-        <div>
-          <h3>Vehicle AI Advisor</h3>
-          <span class="sub-text">Powered by Gemini 2.5 & MCP Server</span>
-        </div>
+        <i class="bx bx-bot"></i>
+        <span>AI Vehicle Advisor</span>
       </div>
-      <button type="button" id="close-drawer-btn" class="close-btn"><i class="bx bx-x"></i></button>
+      <button id="close-drawer-btn" class="drawer-close-btn">&times;</button>
     </div>
-
-    <!-- Quick Prompts Chips -->
-    <div class="quick-prompts">
-      <button type="button" class="prompt-chip" data-prompt="Which SUV here is best for mountain driving and rough roads?">⛰️ Best SUV for mountain driving?</button>
-      <button type="button" class="prompt-chip" data-prompt="Compare Creta vs Nexon vs Seltos side by side">🚗 Compare Creta vs Nexon</button>
-      <button type="button" class="prompt-chip" data-prompt="Show EV savings if I drive 60 km daily">⚡ EV Savings for 60km/day</button>
-    </div>
-
-    <!-- Message History Container -->
-    <div id="chat-messages" class="chat-messages">
-      <div class="message system-msg">
-        <i class="bx bxs-bot"></i>
-        <div>Hello! I'm your AI Vehicle Advisor. Ask me anything about car specs, comparisons, loan EMIs, or EV savings!</div>
+    
+    <div id="chat-history" class="chat-history">
+      <div class="chat-message bot">
+        <p>👋 Hello! I am your AI Vehicle Advisor powered by Gemini 2.5 and MCP Protocol. Ask me anything like <em>"Which SUV is best for mountains under 20L?"</em> or <em>"What is the on-road price of Creta in Bangalore?"</em></p>
       </div>
     </div>
 
-    <!-- Chat Input Area -->
-    <form id="chat-form" class="chat-input-wrapper">
-      <input type="text" id="chat-input" placeholder="Type your vehicle question..." autocomplete="off">
-      <button type="submit" id="chat-send-btn">
-        <i class="bx bxs-paper-plane"></i>
+    <form id="chat-form" class="chat-input-form">
+      <input type="text" id="chat-input" placeholder="Ask AI Advisor a question..." required>
+      <button type="submit" class="chat-send-btn">
+        <i class="bx bx-send"></i>
       </button>
     </form>
   </div>

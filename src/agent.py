@@ -37,9 +37,9 @@ async def main():
                 print("       AUTONOMOUS VEHICLE ADVISOR & BUYING AGENT")
                 print("=======================================================")
                 print("Ask a question like:")
-                print(" - 'Find SUVs around 180 HP under 20 Lakhs'")
-                print(" - 'Calculate personalized match score for family of 5'")
-                print(" - 'Book a test drive for Hyundai Creta at pincode 560001'")
+                print(" - 'What is the on-road price of Hyundai Creta in Bangalore?'")
+                print(" - 'Check dealer inventory for Creta in pincode 560001'")
+                print(" - 'Estimate trade-in value for my 2019 Swift driven 55,000 km'")
                 print(" - 'Compare Creta vs Nexon vs Seltos side by side'")
                 print("Type 'exit' or 'quit' to end the session.")
                 print("=======================================================")
@@ -107,59 +107,45 @@ async def main():
                         )
                     )
 
-                    calculate_tco_tool = types.FunctionDeclaration(
-                        name="calculate_tco",
-                        description="Calculates 5-year Total Cost of Ownership (TCO) and monthly loan EMI for a car.",
+                    get_on_road_price_tool = types.FunctionDeclaration(
+                        name="get_on_road_price",
+                        description="Calculates exact city On-Road Price breakdown (Ex-showroom, RTO Tax, Insurance, Fastag, TCS).",
                         parameters=types.Schema(
                             type=types.Type.OBJECT,
                             properties={
-                                "carPrice": types.Schema(type=types.Type.INTEGER, description="Price of vehicle in INR (e.g. 1500000)."),
-                                "fuelType": types.Schema(type=types.Type.STRING, description="Fuel type: Petrol, Diesel, Electric, Hybrid.")
+                                "carPrice": types.Schema(type=types.Type.INTEGER, description="Ex-showroom price in INR."),
+                                "city": types.Schema(type=types.Type.STRING, description="Target city (e.g. Bangalore, Delhi, Mumbai)."),
+                                "fuelType": types.Schema(type=types.Type.STRING, description="Fuel type (Petrol, Diesel, Electric, Hybrid).")
                             },
-                            required=["carPrice"]
+                            required=["carPrice", "city"]
                         )
                     )
 
-                    calculate_ev_savings_tool = types.FunctionDeclaration(
-                        name="calculate_ev_savings",
-                        description="Calculates fuel cost savings and break-even payback period of buying an EV vs Petrol vehicle.",
-                        parameters=types.Schema(
-                            type=types.Type.OBJECT,
-                            properties={
-                                "dailyKm": types.Schema(type=types.Type.INTEGER, description="Daily distance in km (e.g. 50)."),
-                                "evPrice": types.Schema(type=types.Type.INTEGER, description="EV price in INR (e.g. 1500000)."),
-                                "petrolPrice": types.Schema(type=types.Type.INTEGER, description="Petrol car price in INR (e.g. 1350000).")
-                            },
-                            required=["dailyKm", "evPrice", "petrolPrice"]
-                        )
-                    )
-
-                    book_test_drive_tool = types.FunctionDeclaration(
-                        name="book_test_drive",
-                        description="Books a dealership test drive booking request for a vehicle model.",
+                    check_dealer_inventory_tool = types.FunctionDeclaration(
+                        name="check_dealer_inventory",
+                        description="Checks ready stock availability and waiting period by pincode.",
                         parameters=types.Schema(
                             type=types.Type.OBJECT,
                             properties={
                                 "carModel": types.Schema(type=types.Type.STRING, description="Vehicle model."),
-                                "customerName": types.Schema(type=types.Type.STRING, description="Customer name."),
-                                "customerPhone": types.Schema(type=types.Type.STRING, description="Customer phone."),
-                                "pincode": types.Schema(type=types.Type.STRING, description="Pincode."),
-                                "preferredDate": types.Schema(type=types.Type.STRING, description="Preferred date.")
+                                "pincode": types.Schema(type=types.Type.STRING, description="Area pincode.")
                             },
-                            required=["carModel", "customerName", "customerPhone", "pincode", "preferredDate"]
+                            required=["carModel", "pincode"]
                         )
                     )
 
-                    calculate_match_score_tool = types.FunctionDeclaration(
-                        name="calculate_match_score",
-                        description="Calculates personalized 0-100% compatibility match scores for vehicles.",
+                    estimate_trade_in_value_tool = types.FunctionDeclaration(
+                        name="estimate_trade_in_value",
+                        description="Estimates current resale / trade-in value of an old vehicle.",
                         parameters=types.Schema(
                             type=types.Type.OBJECT,
                             properties={
-                                "useCase": types.Schema(type=types.Type.STRING, description="Primary use case."),
-                                "maxBudget": types.Schema(type=types.Type.INTEGER, description="Max budget in INR.")
+                                "currentCarModel": types.Schema(type=types.Type.STRING, description="Current car model."),
+                                "purchaseYear": types.Schema(type=types.Type.INTEGER, description="Year of purchase."),
+                                "odometerKm": types.Schema(type=types.Type.INTEGER, description="Odometer reading in km."),
+                                "condition": types.Schema(type=types.Type.STRING, description="Condition: Excellent, Good, Fair.")
                             },
-                            required=["useCase", "maxBudget"]
+                            required=["currentCarModel", "purchaseYear", "odometerKm"]
                         )
                     )
 
@@ -173,10 +159,9 @@ async def main():
                         tools_list = [types.Tool(function_declarations=[
                             compare_cars_tool,
                             compare_spec_sheet_tool,
-                            calculate_tco_tool,
-                            calculate_ev_savings_tool,
-                            book_test_drive_tool,
-                            calculate_match_score_tool
+                            get_on_road_price_tool,
+                            check_dealer_inventory_tool,
+                            estimate_trade_in_value_tool
                         ])]
 
                         response = client.models.generate_content(

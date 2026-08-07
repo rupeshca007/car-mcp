@@ -192,7 +192,55 @@ app.get('/api/match-score', async (req, res) => {
   }
 });
 
-// 7. Embedded AI Chat Endpoint for Web Dashboard Drawer
+// 7. Endpoint for get_on_road_price
+app.get('/api/on-road-price', async (req, res) => {
+  const { carPrice, city, fuelType } = req.query;
+
+  try {
+    const data = await invokeMcpTool('get_on_road_price', {
+      carPrice: Number(carPrice || 1500000),
+      city: String(city || 'Bangalore'),
+      fuelType: String(fuelType || 'Petrol')
+    });
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 8. Endpoint for check_dealer_inventory
+app.get('/api/dealer-inventory', async (req, res) => {
+  const { carModel, pincode } = req.query;
+
+  try {
+    const data = await invokeMcpTool('check_dealer_inventory', {
+      carModel: String(carModel || 'Hyundai Creta'),
+      pincode: String(pincode || '560001')
+    });
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 9. Endpoint for estimate_trade_in_value
+app.get('/api/trade-in-value', async (req, res) => {
+  const { currentCarModel, purchaseYear, odometerKm, condition } = req.query;
+
+  try {
+    const data = await invokeMcpTool('estimate_trade_in_value', {
+      currentCarModel: String(currentCarModel || '2019 Maruti Swift'),
+      purchaseYear: Number(purchaseYear || 2019),
+      odometerKm: Number(odometerKm || 55000),
+      condition: String(condition || 'Good')
+    });
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 10. Embedded AI Chat Endpoint for Web Dashboard Drawer
 app.post('/api/ai-chat', async (req, res) => {
   const { prompt } = req.body;
   if (!prompt || typeof prompt !== 'string') {
@@ -229,19 +277,16 @@ app.post('/api/ai-chat', async (req, res) => {
         }
       };
 
-      const book_test_drive_tool = {
-        name: "book_test_drive",
-        description: "Books a test drive appointment for a vehicle model.",
+      const get_on_road_price_tool = {
+        name: "get_on_road_price",
+        description: "Calculates On-Road Price breakdown for major cities.",
         parameters: {
           type: "OBJECT",
           properties: {
-            carModel: { type: "STRING" },
-            customerName: { type: "STRING" },
-            customerPhone: { type: "STRING" },
-            pincode: { type: "STRING" },
-            preferredDate: { type: "STRING" }
+            carPrice: { type: "INTEGER" },
+            city: { type: "STRING" }
           },
-          required: ["carModel", "customerName", "customerPhone", "pincode", "preferredDate"]
+          required: ["carPrice", "city"]
         }
       };
 
@@ -252,7 +297,7 @@ app.post('/api/ai-chat', async (req, res) => {
         contents: prompt,
         config: {
           systemInstruction: system_instruction,
-          tools: [{ functionDeclarations: [compare_cars_tool as any, compare_spec_sheet_tool as any, book_test_drive_tool as any] }],
+          tools: [{ functionDeclarations: [compare_cars_tool as any, compare_spec_sheet_tool as any, get_on_road_price_tool as any] }],
           temperature: 0.3
         }
       });
@@ -277,25 +322,19 @@ app.post('/api/ai-chat', async (req, res) => {
 
     // Smart fallback if GEMINI_API_KEY is not set
     const lowerPrompt = prompt.toLowerCase();
-    if (lowerPrompt.includes('book') || lowerPrompt.includes('test drive') || lowerPrompt.includes('drive')) {
-      const tdRes = await invokeMcpTool('book_test_drive', {
-        carModel: 'Hyundai Creta',
-        customerName: 'Guest User',
-        customerPhone: '9876543210',
-        pincode: '560001',
-        preferredDate: '2026-08-10'
-      });
+    if (lowerPrompt.includes('on road') || lowerPrompt.includes('road price') || lowerPrompt.includes('tax')) {
+      const priceRes = await invokeMcpTool('get_on_road_price', { carPrice: 1500000, city: 'Bangalore', fuelType: 'Petrol' });
       return res.json({
-        reply: `### 🚗 Test Drive Booking Confirmation\n\n- **Booking Reference**: \`${tdRes.bookingId}\`\n- **Vehicle**: **${tdRes.vehicleRequested}**\n- **Slot**: ${tdRes.appointmentSlot}\n- **Assigned Dealer**: ${tdRes.assignedDealership}\n\n*A dealership manager will contact you shortly at ${tdRes.customerPhone} to finalize your test drive!*`,
-        toolCalled: 'book_test_drive'
+        reply: `### 🏙️ City On-Road Price Breakdown (Bangalore)\n\n- **Ex-Showroom Price**: ${priceRes.exShowroomPrice}\n- **State RTO Road Tax**: **${priceRes.rtoRoadTax}**\n- **Comprehensive Insurance**: ${priceRes.insuranceComprehensive}\n- **Registration & Fastag**: ${priceRes.registrationAndFastag}\n- **TCS Tax**: ${priceRes.tcsTax}\n\n👉 **Total On-Road Price**: **${priceRes.totalOnRoadPrice}**`,
+        toolCalled: 'get_on_road_price'
       });
     }
 
-    if (lowerPrompt.includes('ev') || lowerPrompt.includes('electric') || lowerPrompt.includes('savings')) {
-      const evRes = await invokeMcpTool('calculate_ev_savings', { dailyKm: 50, evPrice: 1500000, petrolPrice: 1350000 });
+    if (lowerPrompt.includes('trade in') || lowerPrompt.includes('exchange') || lowerPrompt.includes('old car')) {
+      const tradeRes = await invokeMcpTool('estimate_trade_in_value', { currentCarModel: '2019 Maruti Swift', purchaseYear: 2019, odometerKm: 55000, condition: 'Good' });
       return res.json({
-        reply: `### ⚡ EV vs Petrol Financial Analysis\n\n- **Daily Commute**: 50 km/day (18,250 km/year)\n- **Annual Petrol Fuel Cost**: ${evRes.annualFuelCostPetrol}\n- **Annual EV Charging Cost**: ${evRes.annualElectricityCostEV}\n- **Annual Savings**: **${evRes.annualSavings}**\n- **5-Year Savings**: **${evRes.totalSavingsInYears}**\n- **Break-Even Payback Period**: ${evRes.paybackPeriod}`,
-        toolCalled: 'calculate_ev_savings'
+        reply: `### 💵 Old Car Trade-In Valuation\n\n- **Vehicle**: ${tradeRes.oldVehicle}\n- **Odometer**: ${tradeRes.odometerReading}\n- **Condition**: ${tradeRes.conditionAssessed}\n- **Estimated Resale Valuation**: **${tradeRes.estimatedResaleValuation}**\n\n*This ₹4.2 Lakh credit can be directly deducted from your new car down payment!*`,
+        toolCalled: 'estimate_trade_in_value'
       });
     }
 
