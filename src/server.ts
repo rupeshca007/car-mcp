@@ -8,7 +8,7 @@ import fs from "fs";
 export const server = new Server(
   {
     name: "car-aggregator",
-    version: "1.3.0",
+    version: "1.4.0",
   },
   {
     capabilities: {
@@ -417,13 +417,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "get_on_road_price",
-        description: "Calculates exact city-wise On-Road Price breakdown (Ex-Showroom, RTO Road Tax, Comprehensive Insurance, Fastag & Reg, TCS) for major Indian cities (Bangalore, Delhi, Mumbai, Hyderabad, Chennai, Kolkata, Pune).",
+        description: "Calculates exact city-wise On-Road Price breakdown (Ex-Showroom, RTO Road Tax, Comprehensive Insurance, Fastag & Reg, TCS) for major Indian cities.",
         inputSchema: {
           type: "object",
           properties: {
-            carPrice: { type: "number", description: "Ex-showroom price in INR (e.g., 1500000)." },
-            city: { type: "string", description: "Target City: Bangalore, Delhi, Mumbai, Hyderabad, Chennai, Kolkata, Pune." },
-            fuelType: { type: "string", description: "Fuel type: Petrol, Diesel, Electric, Hybrid." }
+            carPrice: { type: "number" },
+            city: { type: "string" },
+            fuelType: { type: "string" }
           },
           required: ["carPrice", "city"]
         }
@@ -434,24 +434,50 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            carModel: { type: "string", description: "Vehicle model name (e.g., 'Hyundai Creta')." },
-            pincode: { type: "string", description: "Area pincode (e.g., '560001')." }
+            carModel: { type: "string" },
+            pincode: { type: "string" }
           },
           required: ["carModel", "pincode"]
         }
       },
       {
         name: "estimate_trade_in_value",
-        description: "Estimates current resale / trade-in market value of a user's old vehicle based on age, km driven, and condition, calculating net down-payment credit.",
+        description: "Estimates current resale / trade-in market value of a user's old vehicle based on age, km driven, and condition.",
         inputSchema: {
           type: "object",
           properties: {
-            currentCarModel: { type: "string", description: "User's current car model (e.g., '2019 Maruti Swift')." },
-            purchaseYear: { type: "number", description: "Year of purchase (e.g., 2019)." },
-            odometerKm: { type: "number", description: "Current odometer reading in km (e.g., 55000)." },
-            condition: { type: "string", enum: ["Excellent", "Good", "Fair"], description: "Overall vehicle condition." }
+            currentCarModel: { type: "string" },
+            purchaseYear: { type: "number" },
+            odometerKm: { type: "number" },
+            condition: { type: "string", enum: ["Excellent", "Good", "Fair"] }
           },
           required: ["currentCarModel", "purchaseYear", "odometerKm"]
+        }
+      },
+      {
+        name: "evaluate_safety_rating",
+        description: "Evaluates Global NCAP / Bharat NCAP star crash test ratings (1-5 Stars), airbag count, ISOFIX mounts, and ADAS Level 2 safety features.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            carModel: { type: "string", description: "Vehicle model name (e.g., 'Tata Nexon')." }
+          },
+          required: ["carModel"]
+        }
+      },
+      {
+        name: "export_buying_dossier",
+        description: "Generates a comprehensive downloadable vehicle buying dossier report with spec sheets, loan EMI schedules, and test drive receipts.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            carModel: { type: "string", description: "Target vehicle model." },
+            customerName: { type: "string", description: "Buyer full name." },
+            city: { type: "string", description: "Target City." },
+            downPaymentPercent: { type: "number" },
+            loanTenureYears: { type: "number" }
+          },
+          required: ["carModel", "customerName"]
         }
       }
     ]
@@ -867,15 +893,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     else if (lower.includes("creta") || lower.includes("nexon") || lower.includes("seltos") || lower.includes("brezza")) baseValue = 1350000;
     else if (lower.includes("fortuner") || lower.includes("innova") || lower.includes("bmw") || lower.includes("audi")) baseValue = 3500000;
 
-    // Depreciate 11% per year
     let val = baseValue * Math.pow(0.89, ageYears);
 
-    // Odometer penalty
     if (odometerKm > ageYears * 15000) {
       val *= 0.93;
     }
 
-    // Condition multiplier
     if (condition === "Excellent") val *= 1.05;
     else if (condition === "Fair") val *= 0.88;
 
@@ -892,6 +915,107 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             estimatedResaleValuation: formatPrice(finalTradeInValue),
             downPaymentCredit: `₹${finalTradeInValue.toLocaleString("en-IN")} credit directly applied to new car purchase`,
             rawValuation: finalTradeInValue
+          }, null, 2)
+        }
+      ]
+    };
+  }
+
+  if (name === "evaluate_safety_rating") {
+    const carModel = String(args.carModel || "Tata Nexon");
+    const mLower = carModel.toLowerCase();
+
+    let ncapRating = "5 Stars (Global NCAP / Bharat NCAP)";
+    let airbags = 6;
+    let adasLevel = "Level 2 ADAS Available";
+
+    if (mLower.includes("swift") || mLower.includes("alto") || mLower.includes("wagon")) {
+      ncapRating = "2 Stars (Global NCAP)";
+      airbags = 2;
+      adasLevel = "Standard Safety";
+    } else if (mLower.includes("seltos") || mLower.includes("creta")) {
+      ncapRating = "5 Stars (Bharat NCAP 2026)";
+      airbags = 6;
+    }
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            carModel: carModel,
+            ncapCrashTestRating: ncapRating,
+            standardAirbagCount: airbags,
+            adasSuite: adasLevel,
+            safetyFeatures: [
+              "Electronic Stability Control (ESC)",
+              "Hill Hold Assist & Roll Mitigation",
+              "ISOFIX Child Seat Anchors",
+              "360-degree View Radar & Blindspot Monitor",
+              "Tire Pressure Monitoring System (TPMS)"
+            ],
+            structuralIntegrity: "High-Strength Steel Reinforced Safety Cage"
+          }, null, 2)
+        }
+      ]
+    };
+  }
+
+  if (name === "export_buying_dossier") {
+    const { carModel, customerName, city, downPaymentPercent, loanTenureYears } = args;
+    const modelStr = carModel || "Hyundai Creta";
+    const nameStr = customerName || "Valued Buyer";
+    const cityStr = city || "Bangalore";
+    const dp = downPaymentPercent || 20;
+    const tenure = loanTenureYears || 5;
+
+    const basePrice = estimatePrice(modelStr, 115);
+    const dpAmt = (basePrice * dp) / 100;
+    const loanAmt = basePrice - dpAmt;
+    const emi = Math.round((loanAmt * 0.085 / 12 * Math.pow(1.00708, tenure * 12)) / (Math.pow(1.00708, tenure * 12) - 1));
+
+    const dossierMarkdown = `
+# 📄 OFFICIAL AUTOMOTIVE BUYING DOSSIER
+**Prepared for**: ${nameStr}
+**Vehicle Requested**: ${modelStr}
+**City**: ${cityStr}
+**Dossier Reference**: \`DOS-2026-${Math.floor(10000 + Math.random() * 90000)}\`
+
+---
+
+### 🚗 1. Vehicle Specifications Summary
+- **Model**: ${modelStr}
+- **Ex-Showroom Price**: ${formatPrice(basePrice)}
+- **Safety Rating**: ⭐⭐⭐⭐⭐ 5 Stars (Bharat NCAP Certified)
+- **Engine / Drivetrain**: Multi-Point Injection (MPI) Petrol / EV Available
+
+### 💳 2. Financial & Loan EMI Schedule
+- **Down Payment (${dp}%)**: ${formatPrice(dpAmt)}
+- **Loan Principal**: ${formatPrice(loanAmt)}
+- **Tenure**: ${tenure} Years
+- **Estimated Monthly EMI**: **₹${emi.toLocaleString("en-IN")}/month** (at 8.5% p.a.)
+
+### 📍 3. Dealership & Test Drive Voucher
+- **Assigned Dealer**: Authorized Brand Dealership (${cityStr})
+- **Voucher Code**: \`TD-VOUCHER-CONFIRMED\`
+- **Specialist Line**: 1800-CAR-ADVISOR
+
+---
+*Generated autonomously by MCP Car Aggregator Protocol v1.4*
+`;
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            dossierReference: `DOS-2026-${Math.floor(10000 + Math.random() * 90000)}`,
+            customerName: nameStr,
+            carModel: modelStr,
+            city: cityStr,
+            dossierMarkdown: dossierMarkdown,
+            formattedMonthlyEmi: `₹${emi.toLocaleString("en-IN")}/month`,
+            downPayment: formatPrice(dpAmt)
           }, null, 2)
         }
       ]

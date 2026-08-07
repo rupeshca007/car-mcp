@@ -240,7 +240,39 @@ app.get('/api/trade-in-value', async (req, res) => {
   }
 });
 
-// 10. Embedded AI Chat Endpoint for Web Dashboard Drawer
+// 10. Endpoint for evaluate_safety_rating
+app.get('/api/safety-rating', async (req, res) => {
+  const { carModel } = req.query;
+
+  try {
+    const data = await invokeMcpTool('evaluate_safety_rating', {
+      carModel: String(carModel || 'Tata Nexon')
+    });
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 11. Endpoint for export_buying_dossier
+app.get('/api/export-dossier', async (req, res) => {
+  const { carModel, customerName, city, downPaymentPercent, loanTenureYears } = req.query;
+
+  try {
+    const data = await invokeMcpTool('export_buying_dossier', {
+      carModel: String(carModel || 'Hyundai Creta'),
+      customerName: String(customerName || 'Valued Buyer'),
+      city: String(city || 'Bangalore'),
+      downPaymentPercent: Number(downPaymentPercent || 20),
+      loanTenureYears: Number(loanTenureYears || 5)
+    });
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 12. Embedded AI Chat Endpoint for Web Dashboard Drawer
 app.post('/api/ai-chat', async (req, res) => {
   const { prompt } = req.body;
   if (!prompt || typeof prompt !== 'string') {
@@ -265,28 +297,15 @@ app.post('/api/ai-chat', async (req, res) => {
         }
       };
 
-      const compare_spec_sheet_tool = {
-        name: "compare_spec_sheet",
-        description: "Generates a technical spec comparison matrix for 2-4 car models.",
+      const evaluate_safety_rating_tool = {
+        name: "evaluate_safety_rating",
+        description: "Evaluates NCAP crash safety star ratings and ADAS features.",
         parameters: {
           type: "OBJECT",
           properties: {
-            models: { type: "ARRAY", items: { type: "STRING" }, description: "Array of model names." }
+            carModel: { type: "STRING" }
           },
-          required: ["models"]
-        }
-      };
-
-      const get_on_road_price_tool = {
-        name: "get_on_road_price",
-        description: "Calculates On-Road Price breakdown for major cities.",
-        parameters: {
-          type: "OBJECT",
-          properties: {
-            carPrice: { type: "INTEGER" },
-            city: { type: "STRING" }
-          },
-          required: ["carPrice", "city"]
+          required: ["carModel"]
         }
       };
 
@@ -297,7 +316,7 @@ app.post('/api/ai-chat', async (req, res) => {
         contents: prompt,
         config: {
           systemInstruction: system_instruction,
-          tools: [{ functionDeclarations: [compare_cars_tool as any, compare_spec_sheet_tool as any, get_on_road_price_tool as any] }],
+          tools: [{ functionDeclarations: [compare_cars_tool as any, evaluate_safety_rating_tool as any] }],
           temperature: 0.3
         }
       });
@@ -322,19 +341,19 @@ app.post('/api/ai-chat', async (req, res) => {
 
     // Smart fallback if GEMINI_API_KEY is not set
     const lowerPrompt = prompt.toLowerCase();
-    if (lowerPrompt.includes('on road') || lowerPrompt.includes('road price') || lowerPrompt.includes('tax')) {
-      const priceRes = await invokeMcpTool('get_on_road_price', { carPrice: 1500000, city: 'Bangalore', fuelType: 'Petrol' });
+    if (lowerPrompt.includes('safety') || lowerPrompt.includes('ncap') || lowerPrompt.includes('stars') || lowerPrompt.includes('crash')) {
+      const sRes = await invokeMcpTool('evaluate_safety_rating', { carModel: 'Tata Nexon' });
       return res.json({
-        reply: `### 🏙️ City On-Road Price Breakdown (Bangalore)\n\n- **Ex-Showroom Price**: ${priceRes.exShowroomPrice}\n- **State RTO Road Tax**: **${priceRes.rtoRoadTax}**\n- **Comprehensive Insurance**: ${priceRes.insuranceComprehensive}\n- **Registration & Fastag**: ${priceRes.registrationAndFastag}\n- **TCS Tax**: ${priceRes.tcsTax}\n\n👉 **Total On-Road Price**: **${priceRes.totalOnRoadPrice}**`,
-        toolCalled: 'get_on_road_price'
+        reply: `### 🛡️ Safety & NCAP Crash Test Analysis (${sRes.carModel})\n\n- **Crash Rating**: **${sRes.ncapCrashTestRating}**\n- **Airbag Count**: ${sRes.standardAirbagCount} Standard Airbags\n- **ADAS Suite**: ${sRes.adasSuite}\n- **Key Features**: ${sRes.safetyFeatures.join(', ')}\n- **Structural Safety**: ${sRes.structuralIntegrity}`,
+        toolCalled: 'evaluate_safety_rating'
       });
     }
 
-    if (lowerPrompt.includes('trade in') || lowerPrompt.includes('exchange') || lowerPrompt.includes('old car')) {
-      const tradeRes = await invokeMcpTool('estimate_trade_in_value', { currentCarModel: '2019 Maruti Swift', purchaseYear: 2019, odometerKm: 55000, condition: 'Good' });
+    if (lowerPrompt.includes('dossier') || lowerPrompt.includes('pdf') || lowerPrompt.includes('report')) {
+      const dRes = await invokeMcpTool('export_buying_dossier', { carModel: 'Hyundai Creta', customerName: 'Valued Buyer', city: 'Bangalore' });
       return res.json({
-        reply: `### 💵 Old Car Trade-In Valuation\n\n- **Vehicle**: ${tradeRes.oldVehicle}\n- **Odometer**: ${tradeRes.odometerReading}\n- **Condition**: ${tradeRes.conditionAssessed}\n- **Estimated Resale Valuation**: **${tradeRes.estimatedResaleValuation}**\n\n*This ₹4.2 Lakh credit can be directly deducted from your new car down payment!*`,
-        toolCalled: 'estimate_trade_in_value'
+        reply: dRes.dossierMarkdown,
+        toolCalled: 'export_buying_dossier'
       });
     }
 

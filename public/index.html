@@ -24,7 +24,7 @@
       </div>
       <div class="header-badge">
         <span class="pulse-dot"></span>
-        <span>10 Brands Live | MCP Protocol v1.3</span>
+        <span>10 Brands Live | MCP Protocol v1.4</span>
       </div>
     </div>
   </header>
@@ -225,6 +225,20 @@
     </div>
   </div>
 
+  <!-- 360 Photo Gallery Modal -->
+  <div id="gallery-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="gallery-title">📷 Multi-Angle Vehicle Gallery</h2>
+        <button id="close-gallery-btn" class="modal-close-btn">&times;</button>
+      </div>
+      <div id="gallery-body" class="modal-body" style="text-align: center;">
+        <img id="gallery-active-img" src="" style="max-width: 100%; height: 280px; object-fit: contain; border-radius: 12px; margin-bottom: 1rem;">
+        <div id="gallery-thumbs" style="display: flex; gap: 10px; justify-content: center;"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Floating AI Assistant Drawer FAB & Drawer -->
   <button id="ai-fab" class="ai-fab-btn" title="Ask AI Vehicle Advisor">
     <i class="bx bx-bot"></i>
@@ -242,7 +256,7 @@
     
     <div id="chat-history" class="chat-history">
       <div class="chat-message bot">
-        <p>👋 Hello! I am your AI Vehicle Advisor powered by Gemini 2.5 and MCP Protocol. Ask me anything like <em>"Which SUV is best for mountains under 20L?"</em> or <em>"What is the on-road price of Creta in Bangalore?"</em></p>
+        <p>👋 Hello! I am your AI Vehicle Advisor powered by Gemini 2.5 and MCP Protocol. Ask me anything like <em>"Which SUV is best for mountains under 20L?"</em> or <em>"Evaluate safety rating of Tata Nexon"</em></p>
       </div>
     </div>
 

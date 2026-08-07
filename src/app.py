@@ -57,7 +57,7 @@ with st.sidebar:
     st.image("https://www.auto-data.net/img/no.jpg", width=120)
     st.title("Autonomous Tools")
 
-    tab1, tab2, tab3 = st.tabs(["🎯 Match Score", "🏙️ On-Road Price", "💵 Trade-In Value"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["🎯 Match", "🏙️ On-Road", "💵 Trade-In", "🛡️ Safety", "📄 Dossier"])
 
     with tab1:
         use_case = st.selectbox(
@@ -138,6 +138,48 @@ with st.sidebar:
             except Exception as e:
                 st.error(f"Error: {e}")
 
+    with tab4:
+        safety_car = st.text_input("Car Model for Safety Check", value="Tata Nexon")
+        if st.button("Evaluate NCAP Safety"):
+            try:
+                res = requests.get(f"{BACKEND_URL}/api/safety-rating", params={"carModel": safety_car})
+                if res.status_code == 200:
+                    data = res.json()
+                    st.markdown(f"### {data['ncapCrashTestRating']}")
+                    st.write(f"**Airbags**: {data['standardAirbagCount']} Standard")
+                    st.write(f"**ADAS Level**: {data['adasSuite']}")
+                    st.write("**Active Features**:", ", ".join(data['safetyFeatures']))
+                else:
+                    st.error("Failed to fetch safety rating.")
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+    with tab5:
+        dossier_car = st.text_input("Dossier Vehicle Model", value="Hyundai Creta")
+        dossier_name = st.text_input("Buyer Full Name", value="Rupesh Kumar")
+        dossier_city = st.selectbox("Buyer City", ["Bangalore", "Delhi", "Mumbai", "Hyderabad"])
+
+        if st.button("Generate Vehicle Buying Dossier"):
+            try:
+                res = requests.get(f"{BACKEND_URL}/api/export-dossier", params={
+                    "carModel": dossier_car,
+                    "customerName": dossier_name,
+                    "city": dossier_city
+                })
+                if res.status_code == 200:
+                    data = res.json()
+                    st.markdown(data['dossierMarkdown'])
+                    st.download_button(
+                        label="📥 Download Buyer Dossier Report (.md)",
+                        data=data['dossierMarkdown'],
+                        file_name=f"buying_dossier_{dossier_car.replace(' ', '_')}.md",
+                        mime="text/markdown"
+                    )
+                else:
+                    st.error("Failed to generate dossier.")
+            except Exception as e:
+                st.error(f"Error: {e}")
+
     st.divider()
 
     # Dealership Test Drive Booking Form
@@ -174,18 +216,18 @@ st.subheader("💬 Ask AI Vehicle Advisor")
 
 col1, col2, col3 = st.columns(3)
 with col1:
-    if st.button("🏙️ On-Road Price in Bangalore"):
-        st.session_state["user_prompt"] = "What is the on road price of Hyundai Creta in Bangalore?"
+    if st.button("🛡️ Safety rating of Tata Nexon"):
+        st.session_state["user_prompt"] = "What is the NCAP safety star rating and airbag count of Tata Nexon?"
 with col2:
-    if st.button("💵 Trade-in value of 2018 Swift"):
-        st.session_state["user_prompt"] = "Estimate trade-in value for my 2018 Swift driven 60,000 km"
+    if st.button("📄 Generate Buying Dossier for Creta"):
+        st.session_state["user_prompt"] = "Export official vehicle buying dossier for Hyundai Creta in Bangalore"
 with col3:
     if st.button("📍 Check Creta stock in 560001"):
         st.session_state["user_prompt"] = "Check dealer inventory and waiting period for Creta in pincode 560001"
 
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "Hello! I am your AI Vehicle Advisor. Ask me anything about vehicle recommendations, city on-road prices, dealer stock, trade-in valuations, loan EMIs, or EV savings!"}
+        {"role": "assistant", "content": "Hello! I am your AI Vehicle Advisor. Ask me anything about vehicle recommendations, safety NCAP ratings, buying dossiers, city on-road prices, or trade-in valuations!"}
     ]
 
 for message in st.session_state.messages:

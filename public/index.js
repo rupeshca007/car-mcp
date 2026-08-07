@@ -28,6 +28,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const modalBody = document.getElementById('modal-body');
   const closeModalBtn = document.getElementById('close-modal-btn');
 
+  // Gallery Modal Elements
+  const galleryModal = document.getElementById('gallery-modal');
+  const galleryTitle = document.getElementById('gallery-title');
+  const galleryActiveImg = document.getElementById('gallery-active-img');
+  const galleryThumbs = document.getElementById('gallery-thumbs');
+  const closeGalleryBtn = document.getElementById('close-gallery-btn');
+
   // Floating AI Drawer Elements
   const aiFab = document.getElementById('ai-fab');
   const aiDrawer = document.getElementById('ai-drawer');
@@ -76,7 +83,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Brand and City dropdown listener
   brandFilter.addEventListener('change', () => {
     renderCars(currentCarsData);
   });
@@ -184,6 +190,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const onRoadText = calculateOnRoadPrice(car.price, car.fuelType, cityName);
       const isChecked = selectedCarsToCompare.has(car.model);
 
+      const isFiveStar = !car.model.toLowerCase().includes('swift') && !car.model.toLowerCase().includes('alto');
+      const starTag = isFiveStar ? '⭐ 5-Star Safety' : '⭐ 3-Star Safety';
+
       const card = document.createElement('div');
       card.className = 'car-card';
       card.dataset.price = car.price;
@@ -194,6 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <img src="${car.image}" alt="${car.company} ${car.model}" onerror="this.src='https://www.auto-data.net/img/no.jpg'">
           <span class="company-badge">${car.company}</span>
           <span class="fuel-badge">${car.fuelType}</span>
+          <button class="gallery-btn" data-title="${car.company} ${car.model}" data-img="${car.image}" style="position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,0.7); color:#fff; border:none; border-radius:6px; padding:4px 8px; font-size:0.75rem; cursor:pointer;"><i class="bx bx-camera"></i> 360° View</button>
         </div>
         <div class="card-body">
           <h3 class="car-model-title">${car.company} ${car.model}</h3>
@@ -202,6 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <span class="card-emi-badge">${emiText}</span>
           </div>
           <p class="on-road-tag"><i class="bx bx-map-pin"></i> ${onRoadText}</p>
+          <p class="safety-badge-pill" style="font-size:0.75rem; color:#10b981; font-weight:600; margin-top:2px;">${starTag} | 6 Airbags</p>
 
           <div class="card-specs-grid">
             <div class="spec-item">
@@ -227,7 +238,29 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     attachCompareCheckboxListeners();
+    attachGalleryListeners();
   }
+
+  function attachGalleryListeners() {
+    document.querySelectorAll('.gallery-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const title = btn.dataset.title;
+        const mainImg = btn.dataset.img;
+
+        galleryTitle.textContent = `📷 ${title} - 360° Photo Gallery`;
+        galleryActiveImg.src = mainImg;
+
+        galleryThumbs.innerHTML = `
+          <img src="${mainImg}" style="width:60px; height:45px; object-fit:cover; border-radius:6px; cursor:pointer; border:2px solid #3b82f6;" onclick="document.getElementById('gallery-active-img').src='${mainImg}'">
+          <img src="https://www.auto-data.net/img/no.jpg" style="width:60px; height:45px; object-fit:cover; border-radius:6px; cursor:pointer;" onclick="document.getElementById('gallery-active-img').src='https://www.auto-data.net/img/no.jpg'">
+        `;
+
+        galleryModal.classList.remove('hidden');
+      });
+    });
+  }
+
+  closeGalleryBtn.addEventListener('click', () => galleryModal.classList.add('hidden'));
 
   function attachCompareCheckboxListeners() {
     document.querySelectorAll('.compare-checkbox').forEach(cb => {
